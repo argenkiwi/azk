@@ -1,0 +1,18 @@
+# --- Environment and Secrets ---
+.env
+.env.*
+.local
+
+# --- Deno ---
+cov/
+coverage/
+*.lcov
+
+# --- OS Specific ---
+.DS_Store
+.DS_Store?
+._*
+
+# --- Azk (Ambler Zettelkasten) ---
+# Binary SQLite file: not diffable/mergeable, so it's local-only per workstation.
+.azk/
