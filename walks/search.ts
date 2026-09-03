@@ -1,4 +1,6 @@
 import { ambler } from "../ambler.ts";
+import { runWalk } from "../walk.ts";
+import { usageExit } from "../utils/cli.ts";
 import defer * as searchNode from "../nodes/search.ts";
 import { RankedAzk } from "../nodes/search.ts";
 
@@ -18,18 +20,9 @@ const amble = ambler<State, NodeId>({
 export async function main(argv: string[]): Promise<void> {
   const query = argv[0];
   const limit = argv[1] ? Number(argv[1]) : undefined;
-  if (!query) {
-    console.error('Usage: azk search "<query>" [limit]');
-    Deno.exit(1);
-  }
+  if (!query) usageExit('Usage: azk search "<query>" [limit]');
 
-  let nodeId: NodeId | null = "SEARCH";
-  let state: State = { query, limit };
-
-  while (nodeId) {
-    const next = amble(nodeId, state);
-    [nodeId, state] = next instanceof Promise ? await next : next;
-  }
+  await runWalk(amble, "SEARCH", { query, limit });
 }
 
 if (import.meta.main) {

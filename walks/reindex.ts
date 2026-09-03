@@ -1,4 +1,5 @@
 import { ambler } from "../ambler.ts";
+import { runWalk } from "../walk.ts";
 import defer * as reindexNode from "../nodes/reindex.ts";
 
 export interface State {
@@ -13,13 +14,7 @@ const amble = ambler<State, NodeId>({
 });
 
 export async function main(_argv: string[]): Promise<void> {
-  let nodeId: NodeId | null = "REINDEX";
-  let state: State = {};
-
-  while (nodeId) {
-    const next = amble(nodeId, state);
-    [nodeId, state] = next instanceof Promise ? await next : next;
-  }
+  await runWalk(amble, "REINDEX", {});
 }
 
 if (import.meta.main) {

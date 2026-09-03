@@ -1,4 +1,6 @@
 import { ambler } from "../ambler.ts";
+import { runWalk } from "../walk.ts";
+import { usageExit } from "../utils/cli.ts";
 import defer * as deleteNode from "../nodes/delete.ts";
 
 export interface State {
@@ -15,18 +17,10 @@ const amble = ambler<State, NodeId>({
 
 export async function main(argv: string[]): Promise<void> {
   const id = argv[0];
-  if (!id) {
-    console.error("Usage: azk delete <id>");
-    Deno.exit(1);
-  }
+  if (!id) usageExit("Usage: azk delete <id>");
 
-  let nodeId: NodeId | null = "DELETE";
-  let state: State = { id };
-
-  while (nodeId) {
-    const next = amble(nodeId, state);
-    [nodeId, state] = next instanceof Promise ? await next : next;
-  }
+  const state = await runWalk(amble, "DELETE", { id });
+  if (state.error) Deno.exit(1);
 }
 
 if (import.meta.main) {

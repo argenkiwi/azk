@@ -1,4 +1,6 @@
 import { ambler } from "../ambler.ts";
+import { runWalk } from "../walk.ts";
+import { usageExit } from "../utils/cli.ts";
 import defer * as updateNode from "../nodes/update.ts";
 import { readStdinJson } from "../utils/stdin.ts";
 
@@ -19,10 +21,7 @@ const amble = ambler<State, NodeId>({
 
 export async function main(argv: string[]): Promise<void> {
   const id = argv[0];
-  if (!id) {
-    console.error('Usage: echo \'{"title":"..."}\' | azk update <id>');
-    Deno.exit(1);
-  }
+  if (!id) usageExit('Usage: echo \'{"title":"..."}\' | azk update <id>');
 
   const input = await readStdinJson<{
     title?: string;
@@ -30,13 +29,8 @@ export async function main(argv: string[]): Promise<void> {
     tags?: string[];
   }>();
 
-  let nodeId: NodeId | null = "UPDATE";
-  let state: State = { id, ...input };
-
-  while (nodeId) {
-    const next = amble(nodeId, state);
-    [nodeId, state] = next instanceof Promise ? await next : next;
-  }
+  const state = await runWalk(amble, "UPDATE", { id, ...input });
+  if (state.error) Deno.exit(1);
 }
 
 if (import.meta.main) {

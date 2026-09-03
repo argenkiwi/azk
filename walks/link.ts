@@ -1,4 +1,6 @@
 import { ambler } from "../ambler.ts";
+import { runWalk } from "../walk.ts";
+import { usageExit } from "../utils/cli.ts";
 import defer * as linkNode from "../nodes/link.ts";
 
 export interface State {
@@ -18,17 +20,11 @@ const amble = ambler<State, NodeId>({
 export async function main(argv: string[]): Promise<void> {
   const [fromId, toId, relation] = argv;
   if (!fromId || !toId || !relation) {
-    console.error('Usage: azk link <fromId> <toId> "<relation>"');
-    Deno.exit(1);
+    usageExit('Usage: azk link <fromId> <toId> "<relation>"');
   }
 
-  let nodeId: NodeId | null = "LINK";
-  let state: State = { fromId, toId, relation };
-
-  while (nodeId) {
-    const next = amble(nodeId, state);
-    [nodeId, state] = next instanceof Promise ? await next : next;
-  }
+  const state = await runWalk(amble, "LINK", { fromId, toId, relation });
+  if (state.error) Deno.exit(1);
 }
 
 if (import.meta.main) {

@@ -1,4 +1,5 @@
 import { ambler } from "../ambler.ts";
+import { runWalk } from "../walk.ts";
 import defer * as createNode from "../nodes/create.ts";
 import { AzkLinkInput } from "../nodes/create.ts";
 import { readStdinJson } from "../utils/stdin.ts";
@@ -37,18 +38,14 @@ export async function main(_argv: string[]): Promise<void> {
     Deno.exit(1);
   }
 
-  let nodeId: NodeId | null = "CREATE";
-  let state: State = {
+  const state = await runWalk(amble, "CREATE", {
     title: input.title,
     body: input.body,
     tags: input.tags ?? [],
     links: input.links,
-  };
+  });
 
-  while (nodeId) {
-    const next = amble(nodeId, state);
-    [nodeId, state] = next instanceof Promise ? await next : next;
-  }
+  if (state.error) Deno.exit(1);
 }
 
 if (import.meta.main) {

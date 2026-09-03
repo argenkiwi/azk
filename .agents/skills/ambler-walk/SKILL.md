@@ -51,12 +51,15 @@ For each node defined in the specification:
 
 ```typescript
 import { ambler } from "../ambler.ts";
+import { runWalk } from "../walk.ts";
+import { usageExit } from "../utils/cli.ts";
 import defer * as startNode from "../nodes/start.ts";
 import defer * as nextNode from "../nodes/next.ts";
 import defer * as stopNode from "../nodes/stop.ts";
 
 export interface State {
   field: string;
+  error?: string;
 }
 
 type NodeId = "start" | "next" | "stop";
@@ -67,27 +70,28 @@ const amble = ambler<State, NodeId>({
   stop:  () => stopNode.factory({ onDone: null }),
 });
 
-if (import.meta.main) {
-  let nodeId: NodeId | null = "start";
-  let state: State = {
-    field: "initial",
-  };
+export async function main(argv: string[]): Promise<void> {
+  const field = argv[0];
+  if (!field) usageExit("Usage: azk <name> <field>");
 
-  while (nodeId) {
-    const next = amble(nodeId, state);
-    [nodeId, state] = next instanceof Promise ? await next : next;
-  }
+  const state = await runWalk(amble, "start", { field });
+  if (state.error) Deno.exit(1);
+}
+
+if (import.meta.main) {
+  await main(Deno.args);
 }
 ```
 
 **Key rules:**
-- Import `ambler` from `../ambler.ts`.
-- Use `import defer * as <alias>` for every node to support lazy loading (Deno 2.8+).
+- Import `ambler` from `../ambler.ts`, and `runWalk` from `../walk.ts` to drive the graph to completion — do not hand-roll the `while (nodeId)` loop, even for a single-node walk.
+- Use `import defer * as <alias>` for every node to support lazy loading (Deno 2.8+) — apply this consistently regardless of how many nodes the walk has.
 - Define `State` interface at the top of the file.
 - Define `NodeId` union type for node identifiers.
 - Provide a map of node IDs to **functions that return nodes** to `ambler<State, NodeId>({ ... })`.
 - Use arrow functions to defer node creation: `start: () => startNode.factory({ ... })`.
-- Call `ambler` outside the `if` guard and use `instanceof Promise` in the loop.
+- If argv/stdin needs a usage guard, use `usageExit(message)` from `../utils/cli.ts` instead of a raw `console.error` + `Deno.exit(1)` pair.
+- If any node's `State` carries an `error` field, check `state.error` after `runWalk` returns and `Deno.exit(1)` when set — otherwise a failed run silently exits 0, which breaks scripts and agents that check the exit code instead of parsing stdout.
 
 ---
 

@@ -1,4 +1,6 @@
 import { ambler } from "../ambler.ts";
+import { runWalk } from "../walk.ts";
+import { usageExit } from "../utils/cli.ts";
 import defer * as getNode from "../nodes/get.ts";
 import { AzkLink } from "../utils/db.ts";
 import { Note } from "../utils/fs.ts";
@@ -17,18 +19,10 @@ const amble = ambler<State, NodeId>({
 
 export async function main(argv: string[]): Promise<void> {
   const id = argv[0];
-  if (!id) {
-    console.error("Usage: azk get <id>");
-    Deno.exit(1);
-  }
+  if (!id) usageExit("Usage: azk get <id>");
 
-  let nodeId: NodeId | null = "GET";
-  let state: State = { id };
-
-  while (nodeId) {
-    const next = amble(nodeId, state);
-    [nodeId, state] = next instanceof Promise ? await next : next;
-  }
+  const state = await runWalk(amble, "GET", { id });
+  if (state.error) Deno.exit(1);
 }
 
 if (import.meta.main) {
