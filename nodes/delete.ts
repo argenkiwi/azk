@@ -1,6 +1,10 @@
 import { NodeFactory } from "../ambler.ts";
 import { deleteAzk as dbDeleteAzk } from "../utils/db.ts";
-import { deleteNoteFile as fsDeleteNoteFile, Note, readNote as fsReadNote } from "../utils/fs.ts";
+import {
+  deleteNoteFile as fsDeleteNoteFile,
+  Note,
+  readNote as fsReadNote,
+} from "../utils/fs.ts";
 import { DB_PATH } from "../utils/config.ts";
 
 export interface State {
@@ -35,19 +39,19 @@ export const factory: NodeFactory<State, Edge, Utils> = (
   edges,
   utils = defaultUtils,
 ) =>
-  async (state) => {
-    const existing = await utils.readNote(state.id);
+async (state) => {
+  const existing = await utils.readNote(state.id);
 
-    if (!existing) {
-      const error = `Azk not found: ${state.id}`;
-      utils.print(JSON.stringify({ error }));
-      return [edges.onNotFound, { ...state, error }];
-    }
+  if (!existing) {
+    const error = `Azk not found: ${state.id}`;
+    utils.print(JSON.stringify({ error }));
+    return [edges.onNotFound, { ...state, error }];
+  }
 
-    await utils.deleteNoteFile(state.id);
-    utils.deleteAzk(state.id);
+  await utils.deleteNoteFile(state.id);
+  utils.deleteAzk(state.id);
 
-    const result = { id: state.id, deleted: true as const };
-    utils.print(JSON.stringify(result));
-    return [edges.onDeleted, { ...state, result }];
-  };
+  const result = { id: state.id, deleted: true as const };
+  utils.print(JSON.stringify(result));
+  return [edges.onDeleted, { ...state, result }];
+};

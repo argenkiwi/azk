@@ -1,17 +1,16 @@
-import { ambler, Node } from "../ambler.ts";
+import { ambler } from "../ambler.ts";
 import defer * as deleteNode from "../nodes/delete.ts";
 
 export interface State {
   id: string;
-  result?: unknown;
+  result?: { id: string; deleted: true };
   error?: string;
 }
 
 type NodeId = "DELETE";
 
 const amble = ambler<State, NodeId>({
-  DELETE: () =>
-    deleteNode.factory({ onDeleted: null, onNotFound: null }) as unknown as Node<State, NodeId>,
+  DELETE: () => deleteNode.factory({ onDeleted: null, onNotFound: null }),
 });
 
 export async function main(argv: string[]): Promise<void> {

@@ -1,17 +1,18 @@
-import { ambler, Node } from "../ambler.ts";
+import { ambler } from "../ambler.ts";
 import defer * as getNode from "../nodes/get.ts";
+import { AzkLink } from "../utils/db.ts";
+import { Note } from "../utils/fs.ts";
 
 export interface State {
   id: string;
-  result?: unknown;
+  result?: Note & { links: AzkLink[] };
   error?: string;
 }
 
 type NodeId = "GET";
 
 const amble = ambler<State, NodeId>({
-  GET: () =>
-    getNode.factory({ onFound: null, onNotFound: null }) as unknown as Node<State, NodeId>,
+  GET: () => getNode.factory({ onFound: null, onNotFound: null }),
 });
 
 export async function main(argv: string[]): Promise<void> {

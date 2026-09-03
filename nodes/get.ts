@@ -1,5 +1,5 @@
 import { NodeFactory } from "../ambler.ts";
-import { getLinks, AzkLink } from "../utils/db.ts";
+import { AzkLink, getLinks } from "../utils/db.ts";
 import { Note, readNote as fsReadNote } from "../utils/fs.ts";
 import { DB_PATH } from "../utils/config.ts";
 
@@ -32,16 +32,16 @@ export const factory: NodeFactory<State, Edge, Utils> = (
   edges,
   utils = defaultUtils,
 ) =>
-  async (state) => {
-    const note = await utils.readNote(state.id);
+async (state) => {
+  const note = await utils.readNote(state.id);
 
-    if (!note) {
-      const error = `Azk not found: ${state.id}`;
-      utils.print(JSON.stringify({ error }));
-      return [edges.onNotFound, { ...state, error }];
-    }
+  if (!note) {
+    const error = `Azk not found: ${state.id}`;
+    utils.print(JSON.stringify({ error }));
+    return [edges.onNotFound, { ...state, error }];
+  }
 
-    const result = { ...note, links: utils.getLinks(state.id) };
-    utils.print(JSON.stringify(result));
-    return [edges.onFound, { ...state, result }];
-  };
+  const result = { ...note, links: utils.getLinks(state.id) };
+  utils.print(JSON.stringify(result));
+  return [edges.onFound, { ...state, result }];
+};

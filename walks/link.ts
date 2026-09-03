@@ -1,19 +1,18 @@
-import { ambler, Node } from "../ambler.ts";
+import { ambler } from "../ambler.ts";
 import defer * as linkNode from "../nodes/link.ts";
 
 export interface State {
   fromId: string;
   toId: string;
   relation: string;
-  result?: unknown;
+  result?: { fromId: string; toId: string; relation: string; linked: true };
   error?: string;
 }
 
 type NodeId = "LINK";
 
 const amble = ambler<State, NodeId>({
-  LINK: () =>
-    linkNode.factory({ onLinked: null, onError: null }) as unknown as Node<State, NodeId>,
+  LINK: () => linkNode.factory({ onLinked: null, onError: null }),
 });
 
 export async function main(argv: string[]): Promise<void> {
