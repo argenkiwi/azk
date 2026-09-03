@@ -1,18 +1,18 @@
-import { ambler, Node } from "../ambler.ts";
+import { ambler } from "../ambler.ts";
 import defer * as searchNode from "../nodes/search.ts";
+import { RankedAzk } from "../nodes/search.ts";
 
 export interface State {
   query: string;
   limit?: number;
-  results?: unknown[];
+  results?: RankedAzk[];
   error?: string;
 }
 
 type NodeId = "SEARCH";
 
 const amble = ambler<State, NodeId>({
-  SEARCH: () =>
-    searchNode.factory({ onFound: null, onEmpty: null }) as unknown as Node<State, NodeId>,
+  SEARCH: () => searchNode.factory({ onFound: null, onEmpty: null }),
 });
 
 export async function main(argv: string[]): Promise<void> {

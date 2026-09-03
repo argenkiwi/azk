@@ -1,4 +1,7 @@
-const WALKS: Record<string, () => Promise<{ main(argv: string[]): Promise<void> }>> = {
+const WALKS: Record<
+  string,
+  () => Promise<{ main(argv: string[]): Promise<void> }>
+> = {
   search: () => import("./walks/search.ts"),
   create: () => import("./walks/create.ts"),
   get: () => import("./walks/get.ts"),
@@ -18,6 +21,7 @@ if (!load) {
       "  get <id>\n  update <id> (reads JSON from stdin)\n" +
       "  delete <id>\n  link <fromId> <toId> <relation>\n  reindex",
   );
+
   Deno.exit(1);
 }
 

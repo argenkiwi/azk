@@ -1,5 +1,6 @@
-import { ambler, Node } from "../ambler.ts";
+import { ambler } from "../ambler.ts";
 import defer * as createNode from "../nodes/create.ts";
+import { AzkLinkInput } from "../nodes/create.ts";
 import { readStdinJson } from "../utils/stdin.ts";
 
 export interface State {
@@ -7,15 +8,20 @@ export interface State {
   body: string;
   tags: string[];
   links?: { toId: string; relation: string }[];
-  result?: unknown;
+  result?: {
+    id: string;
+    title: string;
+    tags: string[];
+    created: string;
+    links: AzkLinkInput[];
+  };
   error?: string;
 }
 
 type NodeId = "CREATE";
 
 const amble = ambler<State, NodeId>({
-  CREATE: () =>
-    createNode.factory({ onCreated: null, onError: null }) as unknown as Node<State, NodeId>,
+  CREATE: () => createNode.factory({ onCreated: null, onError: null }),
 });
 
 export async function main(_argv: string[]): Promise<void> {

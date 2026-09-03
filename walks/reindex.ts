@@ -1,16 +1,15 @@
-import { ambler, Node } from "../ambler.ts";
+import { ambler } from "../ambler.ts";
 import defer * as reindexNode from "../nodes/reindex.ts";
 
 export interface State {
-  result?: unknown;
+  result?: { indexed: number; updated: number; removed: number; total: number };
   error?: string;
 }
 
 type NodeId = "REINDEX";
 
 const amble = ambler<State, NodeId>({
-  REINDEX: () =>
-    reindexNode.factory({ onIndexed: null }) as unknown as Node<State, NodeId>,
+  REINDEX: () => reindexNode.factory({ onIndexed: null }),
 });
 
 export async function main(_argv: string[]): Promise<void> {

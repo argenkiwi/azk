@@ -1,4 +1,4 @@
-import { ambler, Node } from "../ambler.ts";
+import { ambler } from "../ambler.ts";
 import defer * as updateNode from "../nodes/update.ts";
 import { readStdinJson } from "../utils/stdin.ts";
 
@@ -7,21 +7,20 @@ export interface State {
   title?: string;
   body?: string;
   tags?: string[];
-  result?: unknown;
+  result?: { id: string; updated: true };
   error?: string;
 }
 
 type NodeId = "UPDATE";
 
 const amble = ambler<State, NodeId>({
-  UPDATE: () =>
-    updateNode.factory({ onUpdated: null, onNotFound: null }) as unknown as Node<State, NodeId>,
+  UPDATE: () => updateNode.factory({ onUpdated: null, onNotFound: null }),
 });
 
 export async function main(argv: string[]): Promise<void> {
   const id = argv[0];
   if (!id) {
-    console.error("Usage: echo '{\"title\":\"...\"}' | azk update <id>");
+    console.error('Usage: echo \'{"title":"..."}\' | azk update <id>');
     Deno.exit(1);
   }
 
