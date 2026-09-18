@@ -1,57 +1,41 @@
 import { NodeFactory } from "../ambler.ts";
 import { deleteAzk as dbDeleteAzk } from "../utils/db.ts";
-import {
-  deleteNoteFile as fsDeleteNoteFile,
-  Note,
-  readNote as fsReadNote,
-} from "../utils/fs.ts";
+import { deleteNoteFile as fsDeleteNoteFile } from "../utils/fs.ts";
 import { DB_PATH } from "../utils/config.ts";
 
 export interface State {
-  id: string;
-  result?: { id: string; deleted: true };
-  error?: string;
+  // Populated upstream by DELETE_ID_ARG and DELETE_EXISTS_CHECK.
+  id?: string;
 }
 
-export type Edge = "onDeleted" | "onNotFound";
+export type Edge = "onDeleted";
 
 export type Utils = {
-  readNote: (id: string) => Promise<Note | null>;
   deleteNoteFile: (id: string) => Promise<void>;
   deleteAzk: (id: string) => boolean;
   print: (msg: string) => void;
 };
 
 const defaultUtils: Utils = {
-  readNote: (id) => fsReadNote(id),
   deleteNoteFile: (id) => fsDeleteNoteFile(id),
   deleteAzk: (id) => dbDeleteAzk(DB_PATH, id),
   print: (msg) => console.log(msg),
 };
 
 /**
- * Removes a note's file, its index entry, and any links referencing it (in
- * either direction). A missing id prints `{ error }` and takes the
- * `onNotFound` edge — the process still exits 0 unless the caller maps that
- * edge to an explicit non-zero exit.
+ * Removes the note's Markdown file, its index entry, and any links
+ * referencing it in either direction. Terminal node of the `delete` chain;
+ * the existence check upstream has already ruled out a missing id.
  */
 export const factory: NodeFactory<State, Edge, Utils> = (
   edges,
   utils = defaultUtils,
 ) =>
 async (state) => {
-  const existing = await utils.readNote(state.id);
+  await utils.deleteNoteFile(state.id!);
+  utils.deleteAzk(state.id!);
 
-  if (!existing) {
-    const error = `Azk not found: ${state.id}`;
-    utils.print(JSON.stringify({ error }));
-    return [edges.onNotFound, { ...state, error }];
-  }
+  utils.print(JSON.stringify({ id: state.id, deleted: true }));
 
-  await utils.deleteNoteFile(state.id);
-  utils.deleteAzk(state.id);
-
-  const result = { id: state.id, deleted: true as const };
-  utils.print(JSON.stringify(result));
-  return [edges.onDeleted, { ...state, result }];
+  return [edges.onDeleted, state];
 };

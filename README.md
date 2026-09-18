@@ -2,7 +2,7 @@
 
 A Zettelkasten CLI for coding agents. `azk` gives an AI coding assistant a durable, searchable note store so design decisions, constraints, and gotchas compound across sessions instead of being rediscovered every time.
 
-It's built from seven independent [Ambler](https://github.com/argenkiwi/ambler-ts) walks (`search`, `create`, `get`, `update`, `delete`, `link`, `reindex`) behind a single `azk` dispatcher.
+It's built as a single [Ambler](https://github.com/argenkiwi/ambler-ts) walk: one state machine whose entry node dispatches on the verb (`search`, `create`, `get`, `update`, `delete`, `link`, `reindex`) into that verb's chain of nodes.
 
 ## How it works
 
@@ -17,10 +17,10 @@ The bundled `azk-install` Claude Code skill (`.agents/skills/azk-install`) insta
 
 ```bash
 deno install --global --force --allow-read --allow-write --allow-net --allow-env --env-file \
-  --config deno.json -n azk cli.ts
+  --config deno.json -n azk walks/azk.ts
 ```
 
-`cli.ts` is a thin dispatcher: it routes `azk <verb> ...` to the matching standalone walk under `walks/`, each of which is also independently runnable via `deno run walks/<verb>.ts` or `deno task <verb>`.
+`walks/azk.ts` is the whole command: its `DISPATCH` node reads the verb off the command line and routes into that verb's chain. It's also runnable in place via `deno task azk <verb> ...`.
 
 ## Usage
 
@@ -46,11 +46,14 @@ Search blends keyword matching (FTS5) with semantic similarity when a local Open
 
 ## Architecture
 
-Each verb is an independent Ambler walk: a small state machine of `nodes/` wired together in `walks/`, with shared utilities in `utils/` and a program specification in `specs/` describing its nodes and shared state. `ambler.ts` is the state-machine runner itself, taken from [ambler-ts](https://github.com/argenkiwi/ambler-ts).
+One walk, `walks/azk.ts`, wires every verb into a single state machine over the small, single-purpose nodes in `nodes/`, with shared utilities in `utils/` and the whole graph documented in `specs/azk.md`. `ambler.ts` is the state-machine runner itself, taken from [ambler-ts](https://github.com/argenkiwi/ambler-ts).
+
+Because it's one graph, the shared steps are written once and wired into several chains: `nodes/embed.ts` runs at four positions (`SEARCH_EMBED`, `CREATE_EMBED`, `UPDATE_EMBED`, `REINDEX_EMBED`), and `write-note`, `index-upsert`, `exists-check`, `create-links` and `id-arg` are reused the same way. A node id is a position in the graph; the node file and its tests are the unit of reuse. That also makes the whole thing portable: copy `ambler.ts`, `nodes/`, `utils/` and `walks/azk.ts` into another Ambler TS project and the nodes come with it.
 
 ## Development
 
 ```bash
-deno task test    # run the test suite
-deno task azk ...  # run the dispatcher locally, e.g. deno task azk search "query"
+deno task test     # run the test suite
+deno task check    # type-check walks/, nodes/ and utils/
+deno task azk ...  # run the CLI locally, e.g. deno task azk search "query"
 ```

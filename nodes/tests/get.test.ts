@@ -12,37 +12,26 @@ const sample: Note = {
   body: "Body",
 };
 
-Deno.test("azkGetNode should return the note and its links when found", async () => {
-  const initialState: State = { id: sample.id };
+Deno.test("azkGetNode should print the note together with every link touching it", async () => {
+  const initialState: State = { id: sample.id, note: sample };
 
+  const printed: string[] = [];
   const utils: Utils = {
-    readNote: (id) => Promise.resolve(id === sample.id ? sample : null),
-    getLinks: () => [{ fromId: sample.id, toId: "other", relation: "relates to" }],
-    print: () => {},
+    getLinks: () => [{
+      fromId: sample.id,
+      toId: "other",
+      relation: "relates to",
+    }],
+    print: (msg) => printed.push(msg),
   };
 
-  const result = await factory({ onFound: "next", onNotFound: "missing" }, utils)(
-    initialState,
-  );
+  const result = await factory({ onFound: "done" }, utils)(initialState);
 
-  assertEquals(result[0], "next");
-  assertEquals(result[1].result?.id, sample.id);
-  assertEquals(result[1].result?.links.length, 1);
-});
-
-Deno.test("azkGetNode should transition to onNotFound when the id does not exist", async () => {
-  const initialState: State = { id: "missing-id" };
-
-  const utils: Utils = {
-    readNote: () => Promise.resolve(null),
-    getLinks: () => [],
-    print: () => {},
-  };
-
-  const result = await factory({ onFound: "next", onNotFound: "missing" }, utils)(
-    initialState,
-  );
-
-  assertEquals(result[0], "missing");
-  assertEquals(result[1].error, "Azk not found: missing-id");
+  assertEquals(result[0], "done");
+  assertEquals(printed, [
+    JSON.stringify({
+      ...sample,
+      links: [{ fromId: sample.id, toId: "other", relation: "relates to" }],
+    }),
+  ]);
 });

@@ -1,6 +1,6 @@
 ---
 name: azk-install
-description: Installs the `azk` CLI globally for the current user — a one-time, project-independent setup so any workspace can use `azk search/create/get/update/delete/link/reindex` as a bare command, backed by azk's own standalone repo (seven independent Ambler walks behind a single dispatcher). Also installs the on-demand `azk-reference` skill (CRUD JSON shapes and gotchas) into the current agent's own global skills directory. Use this whenever a user wants to install azk (or "the zettel/zettelkasten command") globally, system-wide, or for every project.
+description: Installs the `azk` CLI globally for the current user — a one-time, project-independent setup so any workspace can use `azk search/create/get/update/delete/link/reindex` as a bare command, backed by azk's own standalone repo (a single Ambler walk that dispatches on the verb). Also installs the on-demand `azk-reference` skill (CRUD JSON shapes and gotchas) into the current agent's own global skills directory. Use this whenever a user wants to install azk (or "the zettel/zettelkasten command") globally, system-wide, or for every project.
 metadata:
   author: leandro
   version: "2.0"
@@ -14,7 +14,7 @@ Installs the `azk` binary globally (via `deno install --global`), wires up the *
 
 ## Step 1 — Locate the source repo
 
-`azk` is a standalone repo (the one containing `deno.json` and `cli.ts`, with each subcommand implemented as its own independent walk under `walks/`):
+`azk` is a standalone repo (the one containing `deno.json` and `walks/azk.ts`, with every subcommand implemented as one walk over the nodes in `nodes/`):
 
 - If this skill is being run from within an `azk` checkout, use the current directory.
 - Otherwise, ask the user for the path to their local `azk` clone.
@@ -27,10 +27,10 @@ All commands below use `<repo>` for this path.
 
 ```bash
 deno install --global --force --allow-read --allow-write --allow-net --allow-env --env-file \
-  --config "<repo>/deno.json" -n azk "<repo>/cli.ts"
+  --config "<repo>/deno.json" -n azk "<repo>/walks/azk.ts"
 ```
 
-`cli.ts` is a thin dispatcher: it argv-routes `azk <verb> ...` to the matching standalone walk under `walks/` (each of which is also independently runnable via `deno run walks/<verb>.ts` or `deno task <verb>`), so the installed binary still behaves as one unified command.
+`walks/azk.ts` is the whole command: its `DISPATCH` node argv-routes `azk <verb> ...` into that verb's chain of nodes, so the installed binary is a single Ambler walk rather than a dispatcher over several.
 
 `--force` is required, not optional — this skill is meant to be re-run whenever the `azk` repo changes, and `deno install --global` refuses to overwrite an existing `azk` install without it (it'll fail with "Existing installation found" otherwise).
 

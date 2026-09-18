@@ -20,7 +20,7 @@ Returns `{ id, title, tags, created, score }[]`, best-first, or `[]`. Degrades t
 `echo '{"title":"...","body":"...","tags":[...],"links":[{"toId":"...","relation":"..."}]}' | deno task azk create`
 Returns `{ id, title, tags, created, links }`, or `{ error }` (exit 0 — see above).
 Gotchas:
-- Malformed or empty stdin JSON crashes with an uncaught exception (stack trace, non-zero exit) during parsing — but once parsing succeeds, a missing `title`/`body` gets a clean `{ error: "title and body are required" }` and exit 1 instead.
+- Malformed or empty stdin JSON gets a clean `{ error: "invalid JSON on stdin" }` and exit 1, as does a missing `title`/`body` (`{ error: "title and body are required" }`). Both are treated as argument-validation failures, so both go to stderr-adjacent handling and exit non-zero.
 - `links` isn't validated against existing ids — a `toId` that doesn't exist is stored as a dangling link anyway (unlike the standalone `link` subcommand, which checks both ids exist first). `reindex` won't clean it up either, since it trusts each note's own frontmatter links without checking the target exists.
 
 ### get
@@ -29,7 +29,7 @@ Returns the full note (including body) plus every link touching it in either dir
 
 ### update
 `echo '{"body":"..."}' | deno task azk update <id>`
-Partial update — any subset of `title`/`body`/`tags`. Returns `{ id, updated: true }` (not the updated fields themselves). Only re-embeds when `body` changes. Same stdin-parsing gotcha as `create`; a missing id's `{ error }` is exit 0 too.
+Partial update — any subset of `title`/`body`/`tags`; an empty object is a valid no-op. Returns `{ id, updated: true }` (not the updated fields themselves). Only re-embeds when `body` changes. Malformed stdin JSON behaves as in `create` (`{ error: "invalid JSON on stdin" }`, exit 1); a missing id's `{ error }` is exit 0.
 
 ### delete
 `deno task azk delete <id>`
@@ -41,4 +41,6 @@ Returns `{ fromId, toId, relation, linked: true }`, or `{ error }` if either id 
 
 ### reindex
 `deno task azk reindex`
-Returns `{ indexed, updated, removed, total }`. Re-embeds only notes whose body actually changed; drops index entries for notes whose file no longer exists.
+Returns `{ indexed, updated, removed, total }`. Re-embeds only notes whose body actually changed, but re-upserts every note and rebuilds its links regardless, so a hand-edit that only touched frontmatter links is still picked up; drops index entries for notes whose file no longer exists.
+Gotchas:
+- A note whose frontmatter has *unquoted* ISO timestamps (`created: 2026-09-01T00:00:00.000Z`) parses as a YAML date, not a string, and the index rejects it — `{ error: "Provided value cannot be bound to SQLite parameter 4." }`, and the rest of the queue is abandoned. `azk` always quotes them when it writes a note; a hand-written or editor-generated note may not.
