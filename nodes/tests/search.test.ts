@@ -19,7 +19,7 @@ Deno.test("azkSearchNode should rank keyword matches when no embeddings host is 
 
   const utils: Utils = {
     searchAzk: () => [record("a", "SQLite notes"), record("b", "Other note")],
-    embed: async () => null,
+    embed: () => Promise.resolve(null),
     getAllEmbeddings: () => [],
     getAzkMeta: () => null,
     print: () => {},
@@ -38,7 +38,7 @@ Deno.test("azkSearchNode should surface a semantically similar note with no keyw
 
   const utils: Utils = {
     searchAzk: () => [],
-    embed: async () => [1, 0],
+    embed: () => Promise.resolve([1, 0]),
     getAllEmbeddings: () => [{ id: "c", vector: [1, 0] }],
     getAzkMeta: (id) => (id === "c" ? record("c", "Zettelkasten") : null),
     print: () => {},
@@ -57,7 +57,7 @@ Deno.test("azkSearchNode should transition to onEmpty when nothing matches", asy
 
   const utils: Utils = {
     searchAzk: () => [],
-    embed: async () => null,
+    embed: () => Promise.resolve(null),
     getAllEmbeddings: () => [],
     getAzkMeta: () => null,
     print: () => {},

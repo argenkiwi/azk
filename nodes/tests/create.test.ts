@@ -8,10 +8,11 @@ Deno.test("azkCreateNode should create a note and return its id when given valid
 
   const utils: Utils = {
     generateId: () => "20260706120000",
-    embed: async () => [0.1, 0.2],
-    writeNote: async (note) => {
-      written.push(note);
-    },
+    embed: () => Promise.resolve([0.1, 0.2]),
+    writeNote: (note) =>
+      Promise.resolve().then(() => {
+        written.push(note);
+      }),
     upsertAzk: (note, embedding) => upserted.push({ note, embedding }),
     createLink: () => {},
     print: () => {},
@@ -38,10 +39,11 @@ Deno.test("azkCreateNode should create links when links are provided", async () 
 
   const utils: Utils = {
     generateId: () => "20260706120000",
-    embed: async () => null,
+    embed: () => Promise.resolve(null),
     writeNote: async () => {},
     upsertAzk: () => {},
-    createLink: (fromId, toId, relation) => linked.push({ fromId, toId, relation }),
+    createLink: (fromId, toId, relation) =>
+      linked.push({ fromId, toId, relation }),
     print: () => {},
   };
 
@@ -61,10 +63,11 @@ Deno.test("azkCreateNode should transition to onError when writeNote throws", as
 
   const utils: Utils = {
     generateId: () => "20260706120000",
-    embed: async () => null,
-    writeNote: async () => {
-      throw new Error("disk full");
-    },
+    embed: () => Promise.resolve(null),
+    writeNote: () =>
+      Promise.resolve().then(() => {
+        throw new Error("disk full");
+      }),
     upsertAzk: () => {},
     createLink: () => {},
     print: () => {},
