@@ -1,8 +1,15 @@
 {
   "tasks": {
     "test": "deno test --allow-read --allow-write --allow-env nodes/tests/ utils/tests/",
-    "check": "deno check walks/ nodes/ utils/",
-    "azk": "deno run --allow-read --allow-write --allow-net --allow-env --env-file walks/azk.ts"
+    "check": "deno check cli.ts walks/ nodes/ utils/",
+    "azk": "deno run --allow-read --allow-write --allow-net --allow-env --env-file cli.ts",
+    "search": "deno run --allow-read --allow-write --allow-net --allow-env --env-file walks/search.ts",
+    "create": "deno run --allow-read --allow-write --allow-net --allow-env --env-file walks/create.ts",
+    "get": "deno run --allow-read --allow-write walks/get.ts",
+    "update": "deno run --allow-read --allow-write --allow-net --allow-env --env-file walks/update.ts",
+    "delete": "deno run --allow-read --allow-write walks/delete.ts",
+    "link": "deno run --allow-read --allow-write walks/link.ts",
+    "reindex": "deno run --allow-read --allow-write --allow-net --allow-env --env-file walks/reindex.ts"
   },
   "imports": {
     "@std/assert": "jsr:@std/assert@^1.0.19",

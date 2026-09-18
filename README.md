@@ -2,7 +2,7 @@
 
 A Zettelkasten CLI for coding agents. `azk` gives an AI coding assistant a durable, searchable note store so design decisions, constraints, and gotchas compound across sessions instead of being rediscovered every time.
 
-It's built as a single [Ambler](https://github.com/argenkiwi/ambler-ts) walk: one state machine whose entry node dispatches on the verb (`search`, `create`, `get`, `update`, `delete`, `link`, `reindex`) into that verb's chain of nodes.
+It's built on [Ambler](https://github.com/argenkiwi/ambler-ts): each verb (`search`, `create`, `get`, `update`, `delete`, `link`, `reindex`) is its own small state machine, and `cli.ts` dispatches on the verb to run one of them.
 
 ## How it works
 
@@ -17,10 +17,10 @@ The bundled `azk-install` Claude Code skill (`.agents/skills/azk-install`) insta
 
 ```bash
 deno install --global --force --allow-read --allow-write --allow-net --allow-env --env-file \
-  --config deno.json -n azk walks/azk.ts
+  --config deno.json -n azk cli.ts
 ```
 
-`walks/azk.ts` is the whole command: its `DISPATCH` node reads the verb off the command line and routes into that verb's chain. It's also runnable in place via `deno task azk <verb> ...`.
+`cli.ts` reads the verb off the command line and imports that verb's walk from `walks/` — only the one it needs. It's also runnable in place via `deno task azk <verb> ...`, or one verb at a time via `deno task get <id>`, `deno task search "query"` and so on.
 
 ## Usage
 
@@ -46,9 +46,9 @@ Search blends keyword matching (FTS5) with semantic similarity when a local Open
 
 ## Architecture
 
-One walk, `walks/azk.ts`, wires every verb into a single state machine over the small, single-purpose nodes in `nodes/`, with shared utilities in `utils/` and the whole graph documented in `specs/azk.md`. `ambler.ts` is the state-machine runner itself, taken from [ambler-ts](https://github.com/argenkiwi/ambler-ts).
+Seven walks in `walks/`, one per verb, each wiring the small single-purpose nodes in `nodes/` into its own state machine. Shared utilities live in `utils/`, each walk is documented in `specs/<verb>.md`, and `ambler.ts` is the state-machine runner itself, taken from [ambler-ts](https://github.com/argenkiwi/ambler-ts). `cli.ts` is a plain dispatcher rather than a walk — picking a module isn't a state transition, and an Ambler edge can only name a node inside its own walk — so it has no spec.
 
-Because it's one graph, the shared steps are written once and wired into several chains: `nodes/embed.ts` runs at four positions (`SEARCH_EMBED`, `CREATE_EMBED`, `UPDATE_EMBED`, `REINDEX_EMBED`), and `write-note`, `index-upsert`, `exists-check`, `create-links` and `id-arg` are reused the same way. A node id is a position in the graph; the node file and its tests are the unit of reuse. That also makes the whole thing portable: copy `ambler.ts`, `nodes/`, `utils/` and `walks/azk.ts` into another Ambler TS project and the nodes come with it.
+The unit of reuse is the node file, not the graph position: `nodes/embed.ts` is wired into four walks, and `write-note`, `index-upsert`, `exists-check`, `create-links` and `usage` the same way, each keeping one implementation and one test file. Splitting per verb is what lets a walk's `State` name only the fields that verb touches and mark the ones it seeds required — under a single shared state, every per-verb field had to be optional. It also keeps the whole thing portable: copy `ambler.ts`, `nodes/`, `utils/` and any one walk into another Ambler TS project and only that walk's nodes come with it.
 
 ## Development
 
