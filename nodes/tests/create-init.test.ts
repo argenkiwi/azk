@@ -29,3 +29,15 @@ Deno.test("azkCreateInitNode should build the note, its link source and the text
   assertEquals(result[1].fromId, "20260706120000");
   assertEquals(result[1].textToEmbed, "Use jitter.");
 });
+
+Deno.test("azkCreateInitNode should generate distinct, millisecond-resolution ids by default", async () => {
+  const initialState: State = { title: "A", body: "B", tags: [], links: [] };
+  const idPattern = /^\d{17}[0-9a-f]{4}$/;
+
+  const [, first] = await factory({ onReady: "next" })(initialState);
+  const [, second] = await factory({ onReady: "next" })(initialState);
+
+  assertEquals(idPattern.test(first.fromId!), true);
+  assertEquals(idPattern.test(second.fromId!), true);
+  assertEquals(first.fromId === second.fromId, false);
+});

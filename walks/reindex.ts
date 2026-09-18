@@ -56,9 +56,9 @@ const amble = ambler<State, NodeId>({
       onMissing: "NEXT",
     }),
   EMBED: () => embedNode.factory({ onEmbedded: "INDEX_UPSERT" }),
-  // A failure here abandons the rest of the queue.
+  // A failure here skips this note and moves on to the next queued id.
   INDEX_UPSERT: () =>
-    indexUpsertNode.factory({ onIndexed: "REPLACE_LINKS", onError: null }),
+    indexUpsertNode.factory({ onIndexed: "REPLACE_LINKS", onError: "NEXT" }),
   REPLACE_LINKS: () => reindexReplaceLinksNode.factory({ onReplaced: "NEXT" }),
   PRUNE_ORPHANS: () => reindexPruneOrphansNode.factory({ onPruned: "FINISH" }),
   FINISH: () => reindexFinishNode.factory({ onIndexed: null }),

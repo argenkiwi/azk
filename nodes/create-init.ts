@@ -21,7 +21,12 @@ export type Utils = {
 };
 
 function generateTimestampId(): string {
-  return new Date().toISOString().replace(/[-:T.]/g, "").slice(0, 14);
+  const timestamp = new Date().toISOString().replace(/[-:T.]/g, "").slice(
+    0,
+    17,
+  );
+  const suffix = crypto.randomUUID().replace(/-/g, "").slice(0, 4);
+  return `${timestamp}${suffix}`;
 }
 
 const defaultUtils: Utils = {
