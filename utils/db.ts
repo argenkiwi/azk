@@ -22,6 +22,27 @@ export interface AzkLink {
   relation: string;
 }
 
+/**
+ * A link as supplied by a caller — the target note and the relation phrase.
+ * The source note is implied by whichever note is being created or linked.
+ *
+ * Distinct from {@link import("./fs.ts").NoteLink}, which is the `{ to, relation }`
+ * shape stored in a note's own frontmatter.
+ */
+export interface AzkLinkInput {
+  toId: string;
+  relation: string;
+}
+
+/** An {@link AzkMeta} summary plus the relevance score search assigned it. */
+export interface RankedAzk {
+  id: string;
+  title: string;
+  tags: string[];
+  created: string;
+  score: number;
+}
+
 const connections = new Map<string, DatabaseSync>();
 
 function open(dbPath: string): DatabaseSync {

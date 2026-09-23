@@ -1,59 +1,31 @@
 import { assertEquals } from "@std/assert";
 import { factory, State, Utils } from "../delete.ts";
-import { Note } from "../../utils/fs.ts";
 
-const existingNote: Note = {
-  id: "20260706120000",
-  title: "Test",
-  tags: [],
-  created: "2026-07-06T00:00:00.000Z",
-  updated: "2026-07-06T00:00:00.000Z",
-  links: [],
-  body: "Body",
-};
-
-Deno.test("azkDeleteNode should delete and return the id when it exists", async () => {
+Deno.test("azkDeleteNode should remove the note file and its index entry", async () => {
   const initialState: State = { id: "20260706120000" };
-  const deletedFiles: string[] = [];
-  const deletedFromIndex: string[] = [];
+
+  const removedFiles: string[] = [];
+  const removedEntries: string[] = [];
+  const printed: string[] = [];
 
   const utils: Utils = {
-    readNote: (id) => Promise.resolve(id === existingNote.id ? existingNote : null),
     deleteNoteFile: (id) => {
-      deletedFiles.push(id);
+      removedFiles.push(id);
       return Promise.resolve();
     },
     deleteAzk: (id) => {
-      deletedFromIndex.push(id);
+      removedEntries.push(id);
       return true;
     },
-    print: () => {},
+    print: (msg) => printed.push(msg),
   };
 
-  const result = await factory({ onDeleted: "next", onNotFound: "missing" }, utils)(
-    initialState,
-  );
+  const result = await factory({ onDeleted: "done" }, utils)(initialState);
 
-  assertEquals(result[0], "next");
-  assertEquals(result[1].result, { id: "20260706120000", deleted: true });
-  assertEquals(deletedFiles, ["20260706120000"]);
-  assertEquals(deletedFromIndex, ["20260706120000"]);
-});
-
-Deno.test("azkDeleteNode should transition to onNotFound when the id does not exist", async () => {
-  const initialState: State = { id: "missing-id" };
-
-  const utils: Utils = {
-    readNote: () => Promise.resolve(null),
-    deleteNoteFile: () => Promise.resolve(),
-    deleteAzk: () => false,
-    print: () => {},
-  };
-
-  const result = await factory({ onDeleted: "next", onNotFound: "missing" }, utils)(
-    initialState,
-  );
-
-  assertEquals(result[0], "missing");
-  assertEquals(result[1].error, "Azk not found: missing-id");
+  assertEquals(result[0], "done");
+  assertEquals(removedFiles, ["20260706120000"]);
+  assertEquals(removedEntries, ["20260706120000"]);
+  assertEquals(printed, [
+    JSON.stringify({ id: "20260706120000", deleted: true }),
+  ]);
 });

@@ -2,7 +2,7 @@
 
 A Zettelkasten CLI for coding agents. `azk` gives an AI coding assistant a durable, searchable note store so design decisions, constraints, and gotchas compound across sessions instead of being rediscovered every time.
 
-It's built from seven independent [Ambler](https://github.com/argenkiwi/ambler-ts) walks (`search`, `create`, `get`, `update`, `delete`, `link`, `reindex`) behind a single `azk` dispatcher.
+It's built on [Ambler](https://github.com/argenkiwi/ambler-ts): each verb (`search`, `create`, `get`, `update`, `delete`, `link`, `reindex`) is its own small state machine, and `cli.ts` dispatches on the verb to run one of them.
 
 ## How it works
 
@@ -20,7 +20,7 @@ deno install --global --force --allow-read --allow-write --allow-net --allow-env
   --config deno.json -n azk cli.ts
 ```
 
-`cli.ts` is a thin dispatcher: it routes `azk <verb> ...` to the matching standalone walk under `walks/`, each of which is also independently runnable via `deno run walks/<verb>.ts` or `deno task <verb>`.
+`cli.ts` reads the verb off the command line and imports that verb's walk from `walks/` — only the one it needs. It's also runnable in place via `deno task azk <verb> ...`, or one verb at a time via `deno task get <id>`, `deno task search "query"` and so on.
 
 ## Usage
 
@@ -46,11 +46,14 @@ Search blends keyword matching (FTS5) with semantic similarity when a local Open
 
 ## Architecture
 
-Each verb is an independent Ambler walk: a small state machine of `nodes/` wired together in `walks/`, with shared utilities in `utils/` and a program specification in `specs/` describing its nodes and shared state. `ambler.ts` is the state-machine runner itself, taken from [ambler-ts](https://github.com/argenkiwi/ambler-ts).
+Seven walks in `walks/`, one per verb, each wiring the small single-purpose nodes in `nodes/` into its own state machine. Shared utilities live in `utils/`, each walk is documented in `specs/<verb>.md`, and `ambler.ts` is the state-machine runner itself, taken from [ambler-ts](https://github.com/argenkiwi/ambler-ts). `cli.ts` is a plain dispatcher rather than a walk — picking a module isn't a state transition, and an Ambler edge can only name a node inside its own walk — so it has no spec.
+
+The unit of reuse is the node file, not the graph position: `nodes/embed.ts` is wired into four walks, and `write-note`, `index-upsert`, `exists-check`, `create-links` and `usage` the same way, each keeping one implementation and one test file. Splitting per verb is what lets a walk's `State` name only the fields that verb touches and mark the ones it seeds required — under a single shared state, every per-verb field had to be optional. It also keeps the whole thing portable: copy `ambler.ts`, `nodes/`, `utils/` and any one walk into another Ambler TS project and only that walk's nodes come with it.
 
 ## Development
 
 ```bash
-deno task test    # run the test suite
-deno task azk ...  # run the dispatcher locally, e.g. deno task azk search "query"
+deno task test     # run the test suite
+deno task check    # type-check walks/, nodes/ and utils/
+deno task azk ...  # run the CLI locally, e.g. deno task azk search "query"
 ```

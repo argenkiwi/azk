@@ -1,6 +1,7 @@
 {
   "tasks": {
     "test": "deno test --allow-read --allow-write --allow-env nodes/tests/ utils/tests/",
+    "check": "deno check cli.ts walks/ nodes/ utils/",
     "azk": "deno run --allow-read --allow-write --allow-net --allow-env --env-file cli.ts",
     "search": "deno run --allow-read --allow-write --allow-net --allow-env --env-file walks/search.ts",
     "create": "deno run --allow-read --allow-write --allow-net --allow-env --env-file walks/create.ts",
