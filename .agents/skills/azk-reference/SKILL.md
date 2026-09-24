@@ -1,6 +1,6 @@
 ---
 name: azk-reference
-description: Pointer to azk's built-in documentation. Use whenever you're about to run an `azk` subcommand (search, create, get, update, delete, link, reindex, setup, clear) and need its exact JSON output shape or an edge case (empty stdin, partial update, delete cascades) — the CLI documents itself via `azk help [verb]`. For installing azk in the first place, use azk-install instead.
+description: Pointer to azk's built-in documentation. Use whenever you're about to run an `azk` subcommand (search, create, get, update, delete, link, reindex, setup, clear) and need its exact JSON output shape or an edge case (empty stdin, partial update, delete cascades) — the CLI documents itself via `azk help [verb]`. For installing azk in the first place, see README.md.
 metadata:
   author: leandro
   version: "2.0"
