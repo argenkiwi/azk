@@ -26,11 +26,11 @@ All commands below use `<repo>` for this path.
 ## Step 2 — Install the binary globally
 
 ```bash
-deno install --global --force --allow-read --allow-write --allow-net --allow-env --env-file \
+deno install --global --force --allow-read --allow-write --allow-net --allow-env --allow-run=git --env-file \
   --config "<repo>/deno.json" -n azk "<repo>/cli.ts"
 ```
 
-`cli.ts` is the entry point: it reads the verb off the command line and dynamically imports that verb's walk from `walks/`, so the installed binary is a dispatcher over seven independent Ambler walks. The import specifiers are literal, which is what lets `deno install` populate the cache for all seven ahead of first use.
+`cli.ts` is the entry point: it reads the verb off the command line and dynamically imports that verb's walk from `walks/`, so the installed binary is a dispatcher over independent Ambler walks, one per verb. The import specifiers are literal, which is what lets `deno install` populate the cache for every walk ahead of first use. `--allow-run=git` is needed only by `setup` and `clear`, which ask git where the repo's hooks directory is.
 
 `--force` is required, not optional — this skill is meant to be re-run whenever the `azk` repo changes, and `deno install --global` refuses to overwrite an existing `azk` install without it (it'll fail with "Existing installation found" otherwise).
 
