@@ -54,6 +54,6 @@ azk setup
 azk clear   # never touches notes/
 ```
 
-All subcommands print a single JSON object/array to stdout — parse it directly. Search blends keyword (FTS5) and, when a local OpenAI-compatible embeddings host is reachable (default `http://localhost:11434/v1`, model `embeddinggemma:latest` — override either via the `EMBEDDING_HOST`/`EMBEDDING_MODEL` env vars, e.g. in a `.env` file), semantic similarity — it degrades gracefully to keyword-only if no such host is running.
+All subcommands except `help` print a single JSON object/array to stdout — parse it directly. Search blends keyword (FTS5) and, when a local OpenAI-compatible embeddings host is reachable (default `http://localhost:11434/v1`, model `embeddinggemma:latest` — override either via the `EMBEDDING_HOST`/`EMBEDDING_MODEL` env vars, e.g. in a `.env` file), semantic similarity — it degrades gracefully to keyword-only if no such host is running.
 
-For the exact JSON shape of each subcommand's output and edge-case gotchas (stdin must be valid JSON, partial-update semantics, delete cascades to links), invoke the `azk-reference` skill.
+For the exact JSON shape of each subcommand's output and edge-case gotchas (stdin must be valid JSON, partial-update semantics, delete cascades to links), run `azk help <verb>` (or `azk help` for general usage) — azk documents itself.

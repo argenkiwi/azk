@@ -10,7 +10,10 @@ Verbs:
   link <fromId> <toId> <relation>
   reindex
   setup
-  clear`;
+  clear
+  help [verb]
+
+Run "azk help" for guidelines, or "azk help <verb>" for one verb.`;
 
 /**
  * Each verb is its own walk, so dispatch is a module lookup rather than a node
@@ -40,6 +43,7 @@ const WALKS: Record<
   reindex: () => import("./walks/reindex.ts"),
   setup: () => import("./walks/setup.ts"),
   clear: () => import("./walks/clear.ts"),
+  help: () => import("./walks/help.ts"),
 };
 
 const [verb, ...rest] = Deno.args;

@@ -2,14 +2,14 @@
 
 A Zettelkasten CLI for coding agents. `azk` gives an AI coding assistant a durable, searchable note store so design decisions, constraints, and gotchas compound across sessions instead of being rediscovered every time.
 
-It's built on [Ambler](https://github.com/argenkiwi/ambler-ts): each verb (`search`, `create`, `get`, `update`, `delete`, `link`, `reindex`, `setup`, `clear`) is its own small state machine, and `cli.ts` dispatches on the verb to run one of them.
+It's built on [Ambler](https://github.com/argenkiwi/ambler-ts): each verb (`search`, `create`, `get`, `update`, `delete`, `link`, `reindex`, `setup`, `clear`, `help`) is its own small state machine, and `cli.ts` dispatches on the verb to run one of them.
 
 ## How it works
 
 Notes are Markdown files with YAML frontmatter under `notes/` — the version-controlled source of truth, editable by hand or in any Markdown editor (Obsidian, HelixNotes, etc.). `.azk/azk.db` is a derived, gitignored SQLite index (full-text search, optional semantic embeddings, and the link graph), fully rebuildable from `notes/` at any time via `azk reindex`.
 
 > [!NOTE]
-> `.azk/azk.db` is never read or written directly — everything goes through the CLI, and every subcommand prints a single JSON object or array to stdout.
+> `.azk/azk.db` is never read or written directly — everything goes through the CLI, and every subcommand except `help` prints a single JSON object or array to stdout.
 
 ## Install
 
@@ -37,6 +37,7 @@ deno install --global --force --allow-read --allow-write --allow-net --allow-env
 | `azk reindex` | Rebuilds `.azk/azk.db` from `notes/*.md`, printing `{indexed, updated, removed, total}`. |
 | `azk setup` | Makes the current project azk-ready: gitignores `.azk/`, installs `post-checkout`/`post-merge`/`post-rewrite` git hooks that run `azk reindex`, and builds the index if there is none. Safe to re-run. |
 | `azk clear` | Undoes `setup`: removes the `.azk` gitignore rule and azk's block from the git hooks, and deletes `.azk/`. Never touches `notes/`. |
+| `azk help [verb]` | Prints usage guidelines as plain text — general ones, or a verb's syntax, exact output shape and gotchas. Lets an agent learn azk from azk itself. |
 
 ```bash
 azk setup
