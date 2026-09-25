@@ -105,6 +105,37 @@ export async function deleteNoteFile(id: string): Promise<void> {
 }
 
 /**
+ * Reads a text file that may legitimately not exist.
+ *
+ * @param path - The file to read.
+ * @returns Its contents, or `null` if there is no such file.
+ */
+export async function readTextIfExists(path: string): Promise<string | null> {
+  try {
+    return await Deno.readTextFile(path);
+  } catch (err) {
+    if (err instanceof Deno.errors.NotFound) return null;
+    throw err;
+  }
+}
+
+/**
+ * Removes a file or directory tree.
+ *
+ * @param path - What to remove.
+ * @returns Whether there was anything there to remove.
+ */
+export async function removeIfExists(path: string): Promise<boolean> {
+  try {
+    await Deno.remove(path, { recursive: true });
+    return true;
+  } catch (err) {
+    if (err instanceof Deno.errors.NotFound) return false;
+    throw err;
+  }
+}
+
+/**
  * Lists the ids of every note currently on disk.
  *
  * @returns Note ids, derived from `<id>.md` filenames in the notes directory.
