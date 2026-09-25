@@ -97,17 +97,7 @@ All subcommands except `help` print a single JSON object/array to stdout — par
 For the exact JSON shape of each subcommand's output and edge-case gotchas (stdin must be valid JSON, partial-update semantics, delete cascades to links), run `azk help <verb>` (or `azk help` for general usage) — azk documents itself.
 ```
 
-### 3. Install the Agent Reference Skill (Optional)
-
-You can copy the bundled `azk-reference` skill directory to your agent's global skills directory (e.g. `~/.claude/skills/azk-reference` or `~/.gemini/config/skills/azk-reference`):
-
-```bash
-cp -R .agents/skills/azk-reference <your-agent-skills-directory>/azk-reference
-```
-
-This teaches your agent how to use `azk help [verb]` to look up exact JSON schemas and edge cases.
-
-### 4. Enable azk in Any Project
+### 3. Enable azk in Any Project
 
 In any project repository where you want to use azk:
 
