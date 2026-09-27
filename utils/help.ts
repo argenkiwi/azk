@@ -25,8 +25,6 @@ rediscovered every time.
   azk delete <id>                    Delete a note and every link touching it
   azk link <fromId> <toId> "<rel>"   Link two existing notes
   azk reindex                        Rebuild the index from notes/
-  azk setup                          Make the current project azk-ready
-  azk clear                          Undo setup (never touches notes/)
   azk help [verb]                    Print this guide, or one verb's guide
 
 Run \`azk help <verb>\` for that verb's exact output shape and gotchas.
@@ -42,8 +40,9 @@ Run \`azk help <verb>\` for that verb's exact output shape and gotchas.
 
 ## Typical workflow
 
-1. Once per project: \`azk setup\` (after a fresh clone, \`azk reindex\` also
-   works — the index is gitignored, so a checkout starts without one).
+1. Once per project: make sure \`.azk/\` is gitignored, then \`azk reindex\` —
+   the index is gitignored, so a fresh checkout starts without one. The azk
+   README also shows optional git hooks that keep it in step.
 2. Before non-trivial work: \`azk search "<task summary>"\`, then \`azk get\`
    only the 1-3 hits that look relevant. Treat them as prior art.
 3. After the work: \`azk create\` one note per non-obvious decision or gotcha —
@@ -162,52 +161,6 @@ Gotchas:
   \`{ "error": "Provided value cannot be bound to SQLite parameter 4." }\` —
   abandoning the rest of the queue. azk always quotes timestamps it writes; a
   hand-written or editor-generated note may not.`,
-
-  setup: `# azk setup
-
-  azk setup
-
-Run from the project root; idempotent. Gitignores \`.azk/\`, installs
-\`post-checkout\`/\`post-merge\`/\`post-rewrite\` git hooks that run
-\`azk reindex\`, and builds the index if there is none.
-
-Returns:
-  {
-    gitignore: "added" | "present",
-    hooks: { "post-checkout" | "post-merge" | "post-rewrite":
-             "installed" | "present" | "unsupported" } | "skipped",
-    reindex: { indexed, updated, removed, total } | "skipped"
-  }
-
-Gotchas:
-- \`reindex\` only runs when \`.azk/\` doesn't exist yet; an existing index is
-  left to the hooks.
-- \`hooks: "skipped"\` means the cwd isn't in a git repo (or git isn't
-  installed). The hooks directory comes from \`git rev-parse --git-path hooks\`,
-  so \`core.hooksPath\` (e.g. husky) is honoured.
-- An existing hook is spliced into (right after its shebang), not replaced. A
-  hook in a non-shell language (\`#!/usr/bin/env node\`, …) is reported
-  \`unsupported\` and left untouched — add \`azk reindex\` to it by hand.
-- The hook calls the global \`azk\` binary and is a silent no-op if it isn't on
-  \`PATH\`; it never fails the git operation.`,
-
-  clear: `# azk clear
-
-  azk clear
-
-Undoes \`setup\`; idempotent. Never touches \`notes/\`.
-
-Returns:
-  {
-    gitignore: "removed" | "absent",
-    hooks: { <hook>: "removed" | "absent" } | "skipped",
-    index: "deleted" | "absent"
-  }
-
-- Removes every root-level \`.azk\` rule from \`.gitignore\`, not just the one
-  \`setup\` wrote.
-- Cuts azk's block out of each hook, deleting hooks that held nothing else.
-- Deletes \`.azk/\`.`,
 
   help: `# azk help
 

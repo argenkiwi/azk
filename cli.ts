@@ -9,8 +9,6 @@ Verbs:
   delete <id>
   link <fromId> <toId> <relation>
   reindex
-  setup
-  clear
   help [verb]
 
 Run "azk help" for guidelines, or "azk help <verb>" for one verb.`;
@@ -41,8 +39,6 @@ const WALKS: Record<
   delete: () => import("./walks/delete.ts"),
   link: () => import("./walks/link.ts"),
   reindex: () => import("./walks/reindex.ts"),
-  setup: () => import("./walks/setup.ts"),
-  clear: () => import("./walks/clear.ts"),
   help: () => import("./walks/help.ts"),
 };
 
