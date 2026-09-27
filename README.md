@@ -32,63 +32,18 @@ deno install --global --force --allow-read --allow-write --allow-net --allow-env
 
 ### 2. Configure Your Coding Agent
 
-Add the **Zettelkasten RAG Protocol** to your agent's global instruction file (e.g. `~/.claude/CLAUDE.md`, `~/.gemini/config/AGENTS.md`, or your agent's system prompt / global rules):
+Add the **Zettelkasten RAG Protocol** to your agent's global instruction file (e.g. `~/.claude/CLAUDE.md`, `~/.gemini/config/AGENTS.md`, or your agent's system prompt / global rules). It's deliberately short — it's loaded into every session, so it holds only the protocol and leaves each verb's syntax, output shape and gotchas to `azk help`:
 
 ```markdown
 # Zettelkasten RAG Protocol
 
-This workspace has a Zettelkasten — an atomic, explicitly-linked note store. Notes are Markdown files with YAML frontmatter under `notes/` (the version-controlled source of truth, editable in Obsidian/HelixNotes or by hand); `.azk/azk.db` is a derived, gitignored SQLite index (full-text search, optional semantic embeddings, and the link graph) rebuildable from `notes/` at any time. It exists so design decisions and gotchas compound across sessions instead of being re-discovered every time. Use it via the global `azk` command below; do not read or write `.azk/azk.db` directly. If you ever hand-edit a file under `notes/`, run `azk reindex` afterward so the index reflects it.
+This workspace keeps an `azk` Zettelkasten: atomic, explicitly-linked notes in `notes/` (Markdown, the version-controlled source of truth) indexed into `.azk/azk.db` (derived and gitignored — never read or write it directly). It lets decisions and gotchas compound across sessions instead of being rediscovered. Run `azk help` for the verbs and output conventions, and `azk help <verb>` before first using a verb, for its exact syntax, output shape and gotchas.
 
-**Before implementing any non-trivial prompt:**
+**Before non-trivial work** — design decisions, cross-module coupling, workarounds for known bugs or quirks; skip mechanical changes — run `azk search "<task summary>"`, then `azk get` only the 1-3 hits that look relevant. Treat them as prior art; if you disagree with one, say so and update it.
 
-\`\`\`bash
-azk search "<short summary of the task>"
-\`\`\`
+**After the work**, `azk create` one note per non-obvious decision, constraint or gotcha (roughly 3-6 sentences, linked to related notes) — never a restatement of the diff. If search surfaced a note on the same narrow topic, `azk update` it instead; if a note proves stale or wrong, update or delete it rather than leaving a contradiction beside it.
 
-Read the returned notes before writing code. If a note is directly relevant, treat it as prior art — don't rediscover a decision that's already been made (or, if you disagree with it, say so and update it).
-
-**After completing the work:**
-
-\`\`\`bash
-echo '{"title":"<short title>","body":"<what you decided or learned, and why>","tags":["<tag>"],"links":[{"toId":"<id>","relation":"<short phrase>"}]}' | azk create
-\`\`\`
-
-Capture the *non-obvious* part — a decision, a constraint, a gotcha — not a restatement of the diff. One idea per note. If it builds on or contradicts a note found during search, include it in `links` with a short relation phrase (e.g. "builds on", "supersedes").
-
-**When existing guidance turns out stale or wrong:**
-
-\`\`\`bash
-echo '{"title":"..."}' | azk update <id>   # partial {title?,body?,tags?} via stdin
-azk delete <id>
-\`\`\`
-
-Prefer updating over leaving a contradicting note next to the old one.
-
-**To connect two existing notes explicitly** (the deliberate-linking step, independent of creation-time links):
-
-\`\`\`bash
-azk link <fromId> <toId> "<relation phrase>"
-\`\`\`
-
-**To fetch one note and its links:**
-
-\`\`\`bash
-azk get <id>
-\`\`\`
-
-**After a fresh clone, or if the index ever drifts from the Markdown files:**
-
-\`\`\`bash
-azk reindex
-\`\`\`
-
-The index is gitignored, so a fresh checkout starts with none — run this once before the first `search`. It's always safe to delete `.azk/` and rebuild it this way.
-
-Make sure `.azk/` is gitignored in the project — it's a local, derived binary.
-
-All subcommands except `help` print a single JSON object/array to stdout — parse it directly. Search blends keyword (FTS5) and, when a local OpenAI-compatible embeddings host is reachable (default `http://localhost:11434/v1`, model `embeddinggemma:latest` — override either via the `EMBEDDING_HOST`/`EMBEDDING_MODEL` env vars, e.g. in a `.env` file), semantic similarity — it degrades gracefully to keyword-only if no such host is running.
-
-For the exact JSON shape of each subcommand's output and edge-case gotchas (stdin must be valid JSON, partial-update semantics, delete cascades to links), run `azk help <verb>` (or `azk help` for general usage) — azk documents itself.
+**If the index is missing** (fresh clone) **or you hand-edited `notes/`**, run `azk reindex`. Make sure `.azk/` is gitignored in the project.
 ```
 
 ### 3. Enable azk in Any Project
