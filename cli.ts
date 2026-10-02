@@ -8,7 +8,10 @@ Verbs:
   update <id> (reads JSON from stdin)
   delete <id>
   link <fromId> <toId> <relation>
-  reindex`;
+  reindex
+  help [verb]
+
+Run "azk help" for guidelines, or "azk help <verb>" for one verb.`;
 
 /**
  * Each verb is its own walk, so dispatch is a module lookup rather than a node
@@ -17,8 +20,8 @@ Verbs:
  * The import is dynamic so a run only loads the one walk it needs. `import
  * defer` would not do here: every walk awaits `main` at the top level, and a
  * deferred module that needs async evaluation is evaluated eagerly, before
- * this file's body runs — so naming all seven in the map below would load all
- * seven on every invocation. Node imports *inside* each walk stay deferred,
+ * this file's body runs — so naming every walk in the map below would load
+ * all of them on every invocation. Node imports *inside* each walk stay deferred,
  * where they are synchronous and do defer.
  *
  * Specifiers must stay literal: `deno install` statically analyses them to
@@ -36,6 +39,7 @@ const WALKS: Record<
   delete: () => import("./walks/delete.ts"),
   link: () => import("./walks/link.ts"),
   reindex: () => import("./walks/reindex.ts"),
+  help: () => import("./walks/help.ts"),
 };
 
 const [verb, ...rest] = Deno.args;
