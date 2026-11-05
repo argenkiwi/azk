@@ -1,6 +1,6 @@
-# Program Specification
+# Program Specifications
 
-This program is the `search` verb of the `azk` command line: it ranks Zettelkasten notes against a query. Notes persist as Markdown files with YAML frontmatter under `notes/<id>.md` (the source of truth); `.azk/azk.db` is a derived, gitignored SQLite index (FTS5 + optional embeddings + link graph), fully rebuildable from the notes by the `reindex` walk.
+This program is the `search` verb of the `azk` command line: it ranks Zettelkasten notes against a query. Notes persist as Markdown files with YAML frontmatter under `notes/<id>.md` (the source of truth); `.azk/azk.db` is a derived, gitignored SQLite index (full-text search, optional embeddings and a link graph), fully rebuildable from the notes by the `reindex` walk.
 
 Search reads only the index, never the Markdown files. It blends two rankings — keyword and semantic — and degrades to keyword-only rather than failing when no embeddings host is reachable.
 
@@ -14,12 +14,12 @@ Every node prints at most one JSON value to stdout. Only a bad invocation — a 
 - If a query was given, transitions to `KEYWORD`. Otherwise transitions to `USAGE`.
 
 ### Keyword
-- Runs the FTS5 keyword search and scores matches by rank position, best first.
+- Runs the full-text keyword search and scores matches by rank position, best first.
 - Queues the query for embedding. An empty keyword result is not a dead end — semantic search can still surface notes sharing no keywords with the query.
 - Transitions to `EMBED`.
 
 ### Embed
-- Implemented by `nodes/embed.ts`; also used by the `create`, `update` and `reindex` walks.
+- Shared with the `create`, `update` and `reindex` walks.
 - Embeds the pending text. Never fails: an unreachable embeddings host yields no vector rather than an error.
 - Transitions to `SEMANTIC`.
 
@@ -34,18 +34,18 @@ Every node prints at most one JSON value to stdout. Only a bad invocation — a 
 
 ### Usage
 - Terminal node, reached only from `INPUT`.
-- Implemented by `nodes/usage.ts`; also used by every other walk that can be invoked badly.
+- Shared with every other walk that can be invoked badly.
 - Prints the pending usage message to stderr, leaving stdout for the single JSON value a successful run produces.
-- Terminates. The walk then exits 1.
+- Terminates. The process then exits 1.
 
 ## Shared State
 
-`args` is the only required field — the walk seeds it from the command line. Every other field is written by a node upstream of whoever reads it.
+`args` is the only seeded field — the walk takes it from the command line. Every other field is written by a node upstream of whoever reads it.
 
 - `args`: The verb's arguments.
 - `usage`: The message `USAGE` should print. Its presence is what makes the run exit 1.
 - `query`: The search query.
 - `limit`: How many results to return, resolved to a number by `INPUT`.
-- `textToEmbed`: The query, queued for embedding. Search embeds the *query*, not a note — dropping this field and `embedding` would silently reduce it to keyword-only.
-- `embedding`: The query vector, or `null` when none could be produced.
-- `keywordResults`, `semanticResults`: The two rankings awaiting the blend.
+- `text_to_embed`: The query, queued for embedding. Search embeds the *query*, not a note — dropping this field and `embedding` would silently reduce it to keyword-only.
+- `embedding`: The query vector, or nothing when none could be produced.
+- `keyword_results`, `semantic_results`: The two rankings awaiting the blend.
