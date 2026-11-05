@@ -1,10 +1,10 @@
-# Program Specification
+# Program Specifications
 
-This program is the `create` verb of the `azk` command line: it writes a new Zettelkasten note. Notes persist as Markdown files with YAML frontmatter under `notes/<id>.md` (the source of truth); `.azk/azk.db` is a derived, gitignored SQLite index (FTS5 + optional embeddings + link graph), fully rebuildable from the notes by the `reindex` walk.
+This program is the `create` verb of the `azk` command line: it writes a new Zettelkasten note. Notes persist as Markdown files with YAML frontmatter under `notes/<id>.md` (the source of truth); `.azk/azk.db` is a derived, gitignored SQLite index (full-text search, optional embeddings and a link graph), fully rebuildable from the notes by the `reindex` walk.
 
 The whole input is JSON on stdin — `create` takes no arguments. The Markdown file is written before the derived index is touched, and the summary is printed only once the file, the index entry and the links have all landed.
 
-Every node prints at most one JSON value to stdout. Failures are values, not exceptions: a node prints `{ error }` and takes an error edge, and the process still exits 0. Only a bad invocation — malformed JSON, or a missing `title` or `body` — reaches `USAGE` and exits 1.
+Every node prints at most one JSON value to stdout. Failures are values, not errors: a node prints `{ "error": ... }` and halts the walk, and the process still exits 0. Only a bad invocation — malformed JSON, or a missing `title` or `body` — reaches `USAGE` and exits 1.
 
 ## Nodes
 
@@ -20,24 +20,24 @@ Every node prints at most one JSON value to stdout. Failures are values, not exc
 - Transitions to `EMBED`.
 
 ### Embed
-- Implemented by `nodes/embed.ts`; also used by the `search`, `update` and `reindex` walks.
-- Embeds the pending text. Never fails: an unreachable embeddings host yields no vector rather than an error.
+- Shared with the `search`, `update` and `reindex` walks.
+- Embeds the pending text, if any. Never fails: an unreachable embeddings host yields no vector rather than an error.
 - Transitions to `WRITE_NOTE`.
 
 ### Write Note
-- Implemented by `nodes/write-note.ts`; also used by the `update` and `link` walks.
+- Shared with the `update` and `link` walks.
 - Persists the note to its Markdown file — the source of truth, written before the derived index is touched.
-- If written, transitions to `INDEX_UPSERT`. Otherwise prints `{ error }` and terminates.
+- If written, transitions to `INDEX_UPSERT`. Otherwise prints `{ "error": ... }` and terminates.
 
 ### Index Upsert
-- Implemented by `nodes/index-upsert.ts`; also used by the `update` and `reindex` walks.
-- Upserts the note into the SQLite index, hashing the body so a later reindex can tell whether it changed. No embedding leaves any previously stored vector alone.
-- If indexed, transitions to `LINKS`. Otherwise prints `{ error }` and terminates.
+- Shared with the `update` and `reindex` walks.
+- Upserts the note into the index, hashing the body so a later reindex can tell whether it changed. No embedding leaves any previously stored vector alone.
+- If indexed, transitions to `CREATE_LINKS`. Otherwise prints `{ "error": ... }` and terminates.
 
-### Links
-- Implemented by `nodes/create-links.ts`; also used by the `link` walk.
-- Records the pending links in the index's link graph. Nothing to link is not an error.
-- If recorded, transitions to `FINISH`. Otherwise prints `{ error }` and terminates.
+### Create Links
+- Shared with the `link` walk.
+- Records the pending links in the index's link graph, pointing out of the source note. Nothing to link is not an error.
+- If recorded, transitions to `FINISH`. Otherwise prints `{ "error": ... }` and terminates.
 
 ### Finish
 - Terminal node of the program.
@@ -46,9 +46,9 @@ Every node prints at most one JSON value to stdout. Failures are values, not exc
 
 ### Usage
 - Terminal node, reached only from `INPUT`.
-- Implemented by `nodes/usage.ts`; also used by every other walk that can be invoked badly.
+- Shared with every other walk that can be invoked badly.
 - Prints the pending message to stderr, leaving stdout for the single JSON value a successful run produces. Note that `INPUT`'s rejections are themselves JSON — `{"error":"..."}` — so `create` is the one walk that prints JSON to stderr.
-- Terminates. The walk then exits 1.
+- Terminates. The process then exits 1.
 
 ## Shared State
 
@@ -57,8 +57,8 @@ Nothing is seeded — `create` takes no arguments, so every field is written by 
 - `usage`: The message `USAGE` should print. Its presence is what makes the run exit 1.
 - `error`: The message a failing node already printed.
 - `title`, `body`, `tags`: The caller's input.
-- `links`: Caller-supplied links as `{ toId, relation }` — never a note's own `{ to, relation }` frontmatter form, which stays inside `note`. Both the input to `INIT` and part of what `FINISH` prints.
-- `fromId`: The new note's id, set by `INIT` for `LINKS` to point the links out of. It reads like a `link`-only field, but dropping it here would leave every created link with no source.
+- `links`: Caller-supplied links as `{ to_id, relation }` — never a note's own `{ to, relation }` frontmatter form, which stays inside `note`. Both the input to `INIT` and part of what `FINISH` prints.
+- `from_id`: The new note's id, set by `INIT` for `CREATE_LINKS` to point the links out of. It reads like a `link`-only field, but dropping it here would leave every created link with no source.
 - `note`: The assembled note.
-- `textToEmbed`: The body, queued for embedding.
-- `embedding`: The resulting vector, or `null` when none was produced.
+- `text_to_embed`: The body, queued for embedding.
+- `embedding`: The resulting vector, or nothing when none was produced.

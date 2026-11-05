@@ -1,12 +1,22 @@
+# --- Rust ---
+/target
+**/*.rs.bk
+*.pdb
+
 # --- Environment and Secrets ---
 .env
 .env.*
 .local
 
-# --- Deno ---
-cov/
-coverage/
-*.lcov
+# --- IDE ---
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+.idea/
+/.claude
 
 # --- OS Specific ---
 .DS_Store

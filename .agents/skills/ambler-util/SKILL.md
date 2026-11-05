@@ -1,133 +1,106 @@
 ---
 name: ambler-util
-description: Creates or extracts utility modules into the utils/ directory of an Ambler project. Use this whenever a node's defaultUtils needs external npm/jsr dependencies, contains logic reusable across multiple nodes, or has implementations too complex to inline — even if the user just says "add a util", "extract this helper", "share this function", "create a utility", or "this code is getting too long for the node". When a user creates a node that imports an npm package or has complex async logic, proactively suggest using this skill.
+description: Creates or extends the side-effect layer in src/utils/ of azk — a capability trait in src/utils/mod.rs, its production implementation on System, and its scripted stand-in on testing::Fake. Use this whenever a node needs a new side effect (file I/O, HTTP, a new crate, environment access) or a helper reusable across nodes — even if the user just says "add a util", "extract this helper", "share this function", or "this code is getting too long for the node".
 metadata:
   author: leandro
-  version: "2.0"
+  version: "4.0-azk"
 ---
 
-# Ambler Util
+# Ambler Util (azk)
 
-Follow these steps to create or extract a utility module in the `utils/` directory.
+azk keeps every side effect behind a narrow **capability trait** in `src/utils/mod.rs` (`Out`, `Stdin`, `Clock`, `NoteStore`, `Embedder`, `Index`). Nodes are generic over `U` and bound it on just the capabilities they use. Two types implement every capability:
 
-## When to create a utility
+- `System` (`src/utils/system.rs`) — production. Each method is a one-line delegation to a plain function in a module such as `src/utils/notes.rs`, `index.rs`, `embed.rs` or `clock.rs`.
+- `Fake` (`src/testing.rs`) — tests, implemented for `&Fake` and scripted per test.
 
-Create a `utils/<name>.ts` file when a node's `defaultUtils` contains:
+## When to add or change a util
 
-1. **External dependencies** — any `npm:` or `jsr:` import (e.g., `npm:ollama`, `npm:marked`)
-2. **Reusable logic** — code that is or could be used by more than one node
-3. **Complex implementations** — functions with significant logic (error handling, retries, connection caching, multi-step operations) that clutter the node file
+- A node needs a side effect that no existing capability covers. Add a method to the closest trait, or a new trait if none fits.
+- Logic is reusable across nodes, or too complex to inline (parsing, SQL, HTTP, retries).
+- A new crate is needed. Only `src/utils/` modules may depend on I/O crates.
 
-Simple one-liners like `(msg) => console.log(msg)` or `() => Math.random()` belong in `defaultUtils` directly — no need to extract them.
+Pure helpers that every node shares without side effects, such as `print_json` and `fail`, belong in `src/nodes/mod.rs`.
 
 ---
 
 ## 1. Gather requirements
 
-Before writing, determine:
+- **Capability**: the trait and method signatures, at the domain level, e.g. `fn read(&self, id: &str) -> io::Result<Option<Note>>`. Use the conventions already in place: `io::Result` for disk, `Result<_, String>` (a caller-facing message) for the index, and `Option` only where "no answer" is a normal result (an unreachable embeddings host).
+- **Module**: which `src/utils/<name>.rs` holds the real implementation.
+- **Crates**: any new dependency and its features.
+- **Consumers**: which nodes will bound on it.
 
-- **Utility name**: What capability does this module provide? (e.g., `ollama_chat`, `file_writer`, `markdown_parser`). File will be named `utils/<name>.ts`.
-- **Functions to export**: What are the signatures? What arguments and return types?
-- **Dependencies**: Does it require npm/jsr packages? Which ones and what versions?
-- **Nodes that will use it**: Which node(s) will import this utility?
+Ask the user if any of this is unclear.
 
-If any of the above is unclear, ask the user before writing code.
+## 2. Implement the module `src/utils/<name>.rs`
 
----
+Plain Rust functions, with no imports from `crate::nodes`, `crate::walks` or `crate::Node`. From `src/utils/embed.rs`:
 
-## 2. Create `utils/<name>.ts`
-
-Export functions that implement the side-effectful work. Keep the module focused on a single capability.
-
-```typescript
-// Example: utils/ollama_chat.ts
-import { Ollama } from "npm:ollama";
-
-// Stateful resources (connection pools, instances) live here — private.
-const instances = new Map<string, Ollama>();
-
-export async function ollamaChat(
-  host: string,
-  model: string,
-  messages: { role: string; content: string }[],
-): Promise<string> {
-  let ollama = instances.get(host);
-  if (!ollama) {
-    ollama = new Ollama({ host });
-    instances.set(host, ollama);
-  }
-  const response = await ollama.chat({ model, messages });
-  return response.message.content;
+```rust
+/// Embeds `text`, or `None` if the host is unreachable or answers badly.
+#[must_use]
+pub fn embed(text: &str) -> Option<Vec<f32>> {
+    let model = std::env::var("EMBEDDING_MODEL").unwrap_or_else(|_| "nomic-embed-text".into());
+    // …
 }
 ```
 
-### Rules
+Rules:
 
-- **Export only functions** — never export raw class instances, connection objects, or module-level state. Callers interact through function calls with clear signatures.
-- **Keep state private** — if the utility needs to cache a client or pool connections, use a module-level `Map` or variable, but keep it unexported.
-- **Match the node's `Utils` type** — exported function signatures must match exactly what the consuming node's `Utils` type declares, so they can be passed in directly.
-- **No Ambler imports** — utility files must not import from `"../ambler.ts"`. They are plain TypeScript helpers.
-- **Extract URL and config constants** — don't inline magic strings like API base URLs. Pull them into named `const` declarations at the top of the file so they're easy to find and change.
+- **Export functions, not clients**. Keep connections, caches and locks private to the module.
+- **Named constants** for paths, URLs and defaults (`notes::DIR`, `index::PATH`).
+- **Doc comments** on every export: a one-line summary, plus `# Errors` for fallible functions.
+- **Unit tests** for pure logic go inline in the module (see the `#[cfg(test)]` blocks in `notes.rs` and `index.rs`).
 
-### TSDoc
+Register the module with `pub mod <name>;` in `src/utils/mod.rs`, keeping the list alphabetical.
 
-Every exported function gets a TSDoc comment. This helps both humans reading the code and agents using the utility in future nodes understand what it does without having to trace the implementation.
+## 3. Wire the capability
 
-```typescript
-/**
- * Fetches the current temperature for a city from the OpenWeather API.
- *
- * @param city - City name (e.g. "London")
- * @param apiKey - OpenWeather API key
- * @returns Current temperature in Celsius
- */
-export async function fetchWeather(city: string, apiKey: string): Promise<number> {
+1. **Trait** — add or extend it in `src/utils/mod.rs`:
+
+   ```rust
+   /// The embeddings host. An unreachable host yields `None`, never an error.
+   pub trait Embedder {
+       fn embed(&self, text: &str) -> Option<Vec<f32>>;
+   }
+   ```
+
+2. **System** — delegate in `src/utils/system.rs`:
+
+   ```rust
+   impl Embedder for System {
+       fn embed(&self, text: &str) -> Option<Vec<f32>> {
+           embed::embed(text)
+       }
+   }
+   ```
+
+3. **Fake** — implement it for `&Fake` in `src/testing.rs`, backed by a scriptable field. Record calls behind a `Mutex` so tests can assert on them:
+
+   ```rust
+   impl Embedder for &Fake {
+       fn embed(&self, text: &str) -> Option<Vec<f32>> {
+           self.embedded.lock().unwrap().push(text.into());
+           self.vector.clone()
+       }
+   }
+   ```
+
+4. **Nodes** — bound `U` on the trait (`U: Embedder + Sync`) and call `self.utils.embed(..)`. Every walk that uses the node gets the bound added to its `impl Walk` block.
+
+## 4. Dependencies
+
+```bash
+cargo add <crate> --features <features>
 ```
 
-Keep it brief — one sentence summary, then `@param` and `@returns` tags. Skip `@throws` unless the function has a documented, meaningful error contract.
+Check `Cargo.toml` first: `rusqlite` (bundled), `serde`, `serde_json`, `serde_yaml`, `ureq`, `rand`, `thiserror` and `tokio` (`macros`, `rt-multi-thread`) are already there.
 
----
+## 5. Checklist
 
-## 3. Update `deno.json` (if using npm/jsr packages)
-
-If the utility imports from `npm:` or `jsr:`, add the package to the `imports` map in `deno.json`:
-
-```json
-{
-  "imports": {
-    "ollama": "npm:ollama@^0.6.3"
-  }
-}
-```
-
-Use the bare specifier as the import key and the versioned URL as the value. Check `deno.json` first — the package may already be listed.
-
----
-
-## 4. Connect to the node
-
-Import the utility in the node file and use it in `defaultUtils`. The `Utils` type stays unchanged — only the implementation in `defaultUtils` changes.
-
-```typescript
-import { ollamaChat } from "../utils/ollama_chat.ts";
-
-const defaultUtils: Utils = {
-  chat: (messages, host, model) => ollamaChat(host, model, messages),
-};
-```
-
-Tests still inject mock implementations and never touch the utility — that's the point of the `Utils` interface.
-
----
-
-## 5. Checklist before finishing
-
-- [ ] `utils/<name>.ts` exists and exports the required functions.
-- [ ] All npm/jsr packages used are listed in `deno.json`.
-- [ ] Exported function signatures match the node's `Utils` type exactly.
-- [ ] Stateful resources (instances, caches) are private in the util module.
-- [ ] URL/config constants are extracted to named `const` declarations.
-- [ ] Every exported function has a TSDoc comment (`@param`, `@returns`).
-- [ ] The node's `defaultUtils` delegates to the utility function.
-- [ ] No `ambler.ts` imports appear in the utility file.
-- [ ] Node tests still use mocked utils — they need no changes.
+- [ ] The real logic is in `src/utils/<name>.rs`, registered in `src/utils/mod.rs`, with doc comments.
+- [ ] The capability trait is in `src/utils/mod.rs`.
+- [ ] `System` delegates to the module, and `&Fake` scripts the capability.
+- [ ] Consuming nodes and walks bound `U` on the trait.
+- [ ] The util module imports nothing from `crate::nodes` or `crate::walks`.
+- [ ] `cargo test` and `cargo clippy --all-targets -- -D warnings` are clean.

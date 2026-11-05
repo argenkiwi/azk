@@ -3,10 +3,10 @@ name: ambler-spec
 description: Creates or updates a Markdown specification file for an Ambler walk in the specs/ directory. Use this whenever a user wants to document, plan, or describe a walk — including "write a spec", "document this walk", or "plan out the nodes" — even before any code exists.
 metadata:
   author: leandro
-  version: "2.1"
+  version: "4.0-azk"
 ---
 
-# Ambler Specification
+# Ambler Specification (Rust)
 
 This skill guides you in creating a Markdown specification file (`specs/<walk-name>.md`) for an Ambler walk. These specs describe the program's flow (nodes and edges) and the resulting shared state.
 
@@ -15,7 +15,7 @@ This skill guides you in creating a Markdown specification file (`specs/<walk-na
 ### 1. Identify the Walk's Name and Purpose
 
 - If not provided, ask the user for the name and a brief description of the walk.
-- The file should be named `specs/<name>.md`.
+- The file should be named `specs/<name>.md`, matching the walk module `src/walks/<name>.rs`.
 
 ### 2. Map the Nodes and Edges
 
@@ -29,7 +29,7 @@ This skill guides you in creating a Markdown specification file (`specs/<walk-na
 
 ### 3. Determine the Shared State
 
-- Aggregating the inputs required and outputs produced by all nodes.
+- Aggregate the inputs required and outputs produced by all nodes.
 - Identify the data structure that must be maintained throughout the walk to satisfy these node requirements.
 - Describe it under a `## Shared State` heading.
 
@@ -61,7 +61,7 @@ Follow this exact format:
 
 ## Shared State
 
-<Description of the state object, derived from the collective needs of the nodes.>
+<Description of the state struct, derived from the collective needs of the nodes.>
 ```
 
 ### 5. Write the File
@@ -71,36 +71,51 @@ Use the Write tool to create `specs/<name>.md`.
 ## Guidelines
 
 - **Consistency**: Browse `specs/*.md` before starting to identify reusable nodes and ensure the new specification follows the established style and formatting.
-- **Node name casing**: Use Title Case for headings (`### Count`) and backtick-quoted ALL_CAPS for references in edge descriptions (`` `COUNT` ``).
-- **Clarity**: Describe *what* the program does, not *how* the code implements it.
-- **Implementation Alignment**: If `walks/<name>.ts` already exists, ensure the spec reflects the implementation. If it doesn't, treat the spec as a blueprint.
+- **Node name casing**: Use Title Case for headings (`### Exists Check`) and backtick-quoted ALL_CAPS for references in edge descriptions (`` `EXISTS_CHECK` ``). In code these become `Id` enum variants (`Id::ExistsCheck`), and each edge becomes one `Outcome` variant of the node that follows it.
+- **Clarity**: Describe *what* the program does, not *how* the code implements it — no Rust types, traits or crate names.
+- **Implementation Alignment**: If `src/walks/<name>.rs` already exists, ensure the spec reflects the implementation. If it doesn't, treat the spec as a blueprint.
 - **No extra sections**: Stick to `# Program Specifications`, `## Nodes`, and `## Shared State` — no additional top-level sections unless the walk clearly requires them.
 - **Pragmatic State**: Don't guess the state first; look at what each node needs to know or change, and then define the state.
 
 ## Example Specification
 
+From `specs/get.md`:
+
 ```markdown
 # Program Specifications
 
-This program is a simple counter application.
+This program is the `get` verb of the `azk` command line: it fetches one Zettelkasten note and its links.
+
+Every node prints at most one JSON value to stdout. A missing note is a failure inside the verb: it prints `{ "error": ... }` and still exits 0. Only a bad invocation — no id — reaches `USAGE` and exits 1.
 
 ## Nodes
 
-### Start
-- Initial node of the application.
-- Prompts the user to enter a starting number for the count.
-- If the number entered is valid, it transitions to `COUNT`.
-- If the number entered is invalid, it displays an error message and transitions to `START`.
+### Id Arg
+- Initial node of the program.
+- Shared with the `update` and `delete` walks.
+- Reads a note id from the first argument.
+- If an id was given, transitions to `EXISTS_CHECK`. Otherwise transitions to `USAGE`.
 
-### Count
-- Prints the current count and increments the counter.
-- Transitions to `COUNT` or to `STOP`.
+### Exists Check
+- Reads the note by id and attaches it, so downstream nodes don't read it again.
+- If found, transitions to `GET`. Otherwise prints `{ "error": ... }` and terminates.
 
-### Stop
-- Displays the final count and terminates.
+### Get
+- Terminal node of the program.
+- Prints the note together with every link touching it in either direction.
+- Terminates.
+
+### Usage
+- Terminal node, reached only from `ID_ARG`.
+- Prints the pending usage message to stderr.
+- Terminates. The process then exits 1.
 
 ## Shared State
 
-The shared state consists of:
-- `count`: An integer representing the current value.
+- `verb`: Always `get` here.
+- `args`: The verb's arguments.
+- `usage`: The message `USAGE` should print. Its presence is what makes the run exit 1.
+- `error`: The message a failing node already printed.
+- `id`: The note being fetched.
+- `note`: That note, once read from disk.
 ```
