@@ -2,7 +2,9 @@
 
 use crate::model::{Link, Note};
 use crate::nodes::create_links::{self, CreateLinks};
-use crate::nodes::link::{Finish, HasLinkArgs, Input, InputOutcome, Validate, ValidateOutcome};
+use crate::nodes::link_finish::LinkFinish;
+use crate::nodes::link_input::{self, LinkInput};
+use crate::nodes::link_validate::{self, LinkValidate};
 use crate::nodes::usage::Usage;
 use crate::nodes::write_note::{self, WriteNote};
 use crate::utils::{Index, NoteStore, Out, System};
@@ -24,22 +26,7 @@ struct State {
     links: Vec<Link>,
 }
 
-impl_has!(State: args, usage, error, links, note);
-
-impl HasLinkArgs for State {
-    fn to_id(&self) -> &Option<String> {
-        &self.to_id
-    }
-    fn to_id_mut(&mut self) -> &mut Option<String> {
-        &mut self.to_id
-    }
-    fn relation(&self) -> &Option<String> {
-        &self.relation
-    }
-    fn relation_mut(&mut self) -> &mut Option<String> {
-        &mut self.relation
-    }
-}
+impl_has!(State: args, usage, error, links, link_args, note);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Id {
@@ -52,11 +39,11 @@ enum Id {
 }
 
 struct LinkWalk<U = System> {
-    input: Input,
-    validate: Validate<U>,
+    input: LinkInput,
+    validate: LinkValidate<U>,
     write_note: WriteNote<U>,
     create_links: CreateLinks<U>,
-    finish: Finish<U>,
+    finish: LinkFinish<U>,
     usage: Usage<U>,
 }
 
@@ -77,11 +64,11 @@ impl<U: Clone> LinkWalk<U> {
     #[must_use]
     fn with_utils(utils: U) -> Self {
         Self {
-            input: Input,
-            validate: Validate::with_utils(utils.clone()),
+            input: LinkInput,
+            validate: LinkValidate::with_utils(utils.clone()),
             write_note: WriteNote::with_utils(utils.clone()),
             create_links: CreateLinks::with_utils(utils.clone()),
-            finish: Finish::with_utils(utils.clone()),
+            finish: LinkFinish::with_utils(utils.clone()),
             usage: Usage::with_utils(utils),
         }
     }
@@ -100,15 +87,15 @@ where
             Id::Input => {
                 let Ok(outcome) = self.input.run(state).await;
                 match outcome {
-                    InputOutcome::Given => Transition::Next(Id::Validate),
-                    InputOutcome::Missing => Transition::Next(Id::Usage),
+                    link_input::Outcome::Given => Transition::Next(Id::Validate),
+                    link_input::Outcome::Missing => Transition::Next(Id::Usage),
                 }
             }
             Id::Validate => {
                 let Ok(outcome) = self.validate.run(state).await;
                 match outcome {
-                    ValidateOutcome::Valid => Transition::Next(Id::WriteNote),
-                    ValidateOutcome::Invalid => Transition::Halt,
+                    link_validate::Outcome::Valid => Transition::Next(Id::WriteNote),
+                    link_validate::Outcome::Invalid => Transition::Halt,
                 }
             }
             Id::WriteNote => {

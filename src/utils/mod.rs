@@ -10,7 +10,7 @@ pub mod clock;
 pub mod embed;
 pub mod index;
 pub mod notes;
-mod system;
+pub mod system;
 
 pub use system::System;
 

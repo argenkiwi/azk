@@ -2,12 +2,14 @@
 
 use crate::model::Note;
 use crate::nodes::StoreError;
+use crate::nodes::detect_change::{self, DetectChange};
 use crate::nodes::embed::Embed;
 use crate::nodes::index_upsert::{self, IndexUpsert};
-use crate::nodes::reindex::{
-    DetectChange, DetectOutcome, Finish, HasQueue, List, Next, NextOutcome, PruneOrphans,
-    ReplaceLinks,
-};
+use crate::nodes::prune_orphans::PruneOrphans;
+use crate::nodes::reindex_finish::ReindexFinish;
+use crate::nodes::reindex_list::ReindexList;
+use crate::nodes::reindex_next::{self, ReindexNext};
+use crate::nodes::replace_links::ReplaceLinks;
 use crate::utils::{Embedder, Index, NoteStore, Out, System};
 use crate::{Node, Transition, Walk, impl_has};
 use std::collections::VecDeque;
@@ -32,35 +34,7 @@ struct State {
     removed: usize,
 }
 
-impl_has!(State: error, id, note, embedding);
-
-impl HasQueue for State {
-    fn seed(&mut self, ids: Vec<String>) {
-        self.total = ids.len();
-        self.remaining_ids = ids.iter().cloned().collect();
-        self.all_ids = ids;
-        self.indexed = 0;
-        self.updated = 0;
-    }
-    fn all_ids(&self) -> &[String] {
-        &self.all_ids
-    }
-    fn take_next(&mut self) -> Option<String> {
-        self.remaining_ids.pop_front()
-    }
-    fn count_indexed(&mut self) {
-        self.indexed += 1;
-    }
-    fn count_updated(&mut self) {
-        self.updated += 1;
-    }
-    fn set_removed(&mut self, removed: usize) {
-        self.removed = removed;
-    }
-    fn summary(&self) -> (usize, usize, usize, usize) {
-        (self.indexed, self.updated, self.removed, self.total)
-    }
-}
+impl_has!(State: error, id, note, embedding, queue);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Id {
@@ -75,14 +49,14 @@ enum Id {
 }
 
 struct Reindex<U = System> {
-    list: List<U>,
-    next: Next,
+    list: ReindexList<U>,
+    next: ReindexNext,
     detect_change: DetectChange<U>,
     embed: Embed<U>,
     index_upsert: IndexUpsert<U>,
     replace_links: ReplaceLinks<U>,
     prune_orphans: PruneOrphans<U>,
-    finish: Finish<U>,
+    finish: ReindexFinish<U>,
 }
 
 impl Reindex {
@@ -102,14 +76,14 @@ impl<U: Clone> Reindex<U> {
     #[must_use]
     fn with_utils(utils: U) -> Self {
         Self {
-            list: List::with_utils(utils.clone()),
-            next: Next,
+            list: ReindexList::with_utils(utils.clone()),
+            next: ReindexNext,
             detect_change: DetectChange::with_utils(utils.clone()),
             embed: Embed::with_utils(utils.clone()),
             index_upsert: IndexUpsert::with_utils(utils.clone()),
             replace_links: ReplaceLinks::with_utils(utils.clone()),
             prune_orphans: PruneOrphans::with_utils(utils.clone()),
-            finish: Finish::with_utils(utils),
+            finish: ReindexFinish::with_utils(utils),
         }
     }
 }
@@ -131,13 +105,13 @@ where
             Id::Next => {
                 let Ok(outcome) = self.next.run(state).await;
                 match outcome {
-                    NextOutcome::Note => Transition::Next(Id::DetectChange),
-                    NextOutcome::Done => Transition::Next(Id::PruneOrphans),
+                    reindex_next::Outcome::Note => Transition::Next(Id::DetectChange),
+                    reindex_next::Outcome::Done => Transition::Next(Id::PruneOrphans),
                 }
             }
             Id::DetectChange => match self.detect_change.run(state).await? {
-                DetectOutcome::Read => Transition::Next(Id::Embed),
-                DetectOutcome::Vanished => Transition::Next(Id::Next),
+                detect_change::Outcome::Read => Transition::Next(Id::Embed),
+                detect_change::Outcome::Vanished => Transition::Next(Id::Next),
             },
             Id::Embed => {
                 let Ok(()) = self.embed.run(state).await;

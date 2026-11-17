@@ -5,7 +5,9 @@ use crate::nodes::embed::Embed;
 use crate::nodes::exists_check::{self, ExistsCheck};
 use crate::nodes::id_arg::{self, IdArg};
 use crate::nodes::index_upsert::{self, IndexUpsert};
-use crate::nodes::update::{Finish, Input, InputOutcome, Merge};
+use crate::nodes::update_finish::UpdateFinish;
+use crate::nodes::update_input::{self, UpdateInput};
+use crate::nodes::update_merge::UpdateMerge;
 use crate::nodes::usage::Usage;
 use crate::nodes::write_note::{self, WriteNote};
 use crate::utils::{Clock, Embedder, Index, NoteStore, Out, Stdin, System};
@@ -51,13 +53,13 @@ enum Id {
 
 struct Update<U = System> {
     id_arg: IdArg,
-    input: Input<U>,
+    input: UpdateInput<U>,
     exists_check: ExistsCheck<U>,
-    merge: Merge<U>,
+    merge: UpdateMerge<U>,
     embed: Embed<U>,
     write_note: WriteNote<U>,
     index_upsert: IndexUpsert<U>,
-    finish: Finish<U>,
+    finish: UpdateFinish<U>,
     usage: Usage<U>,
 }
 
@@ -80,13 +82,13 @@ impl<U: Clone> Update<U> {
         Self {
             // `update` needs stdin as well as an id, so the default usage line won't do.
             id_arg: IdArg::with_usage(r#"Usage: echo '{"body":"..."}' | azk update <id>"#),
-            input: Input::with_utils(utils.clone()),
+            input: UpdateInput::with_utils(utils.clone()),
             exists_check: ExistsCheck::with_utils(utils.clone()),
-            merge: Merge::with_utils(utils.clone()),
+            merge: UpdateMerge::with_utils(utils.clone()),
             embed: Embed::with_utils(utils.clone()),
             write_note: WriteNote::with_utils(utils.clone()),
             index_upsert: IndexUpsert::with_utils(utils.clone()),
-            finish: Finish::with_utils(utils.clone()),
+            finish: UpdateFinish::with_utils(utils.clone()),
             usage: Usage::with_utils(utils),
         }
     }
@@ -112,8 +114,8 @@ where
             Id::Input => {
                 let Ok(outcome) = self.input.run(state).await;
                 match outcome {
-                    InputOutcome::Parsed => Transition::Next(Id::ExistsCheck),
-                    InputOutcome::Invalid => Transition::Next(Id::Usage),
+                    update_input::Outcome::Parsed => Transition::Next(Id::ExistsCheck),
+                    update_input::Outcome::Invalid => Transition::Next(Id::Usage),
                 }
             }
             Id::ExistsCheck => {

@@ -1,7 +1,9 @@
 //! `azk create`: writes a new note from JSON on stdin. See `specs/create.md`.
 
 use crate::model::{Link, Note};
-use crate::nodes::create::{Finish, Init, Input, InputOutcome};
+use crate::nodes::create_finish::CreateFinish;
+use crate::nodes::create_init::CreateInit;
+use crate::nodes::create_input::{self, CreateInput};
 use crate::nodes::create_links::{self, CreateLinks};
 use crate::nodes::embed::Embed;
 use crate::nodes::index_upsert::{self, IndexUpsert};
@@ -43,13 +45,13 @@ enum Id {
 }
 
 struct Create<U = System> {
-    input: Input<U>,
-    init: Init<U>,
+    input: CreateInput<U>,
+    init: CreateInit<U>,
     embed: Embed<U>,
     write_note: WriteNote<U>,
     index_upsert: IndexUpsert<U>,
     create_links: CreateLinks<U>,
-    finish: Finish<U>,
+    finish: CreateFinish<U>,
     usage: Usage<U>,
 }
 
@@ -70,13 +72,13 @@ impl<U: Clone> Create<U> {
     #[must_use]
     fn with_utils(utils: U) -> Self {
         Self {
-            input: Input::with_utils(utils.clone()),
-            init: Init::with_utils(utils.clone()),
+            input: CreateInput::with_utils(utils.clone()),
+            init: CreateInit::with_utils(utils.clone()),
             embed: Embed::with_utils(utils.clone()),
             write_note: WriteNote::with_utils(utils.clone()),
             index_upsert: IndexUpsert::with_utils(utils.clone()),
             create_links: CreateLinks::with_utils(utils.clone()),
-            finish: Finish::with_utils(utils.clone()),
+            finish: CreateFinish::with_utils(utils.clone()),
             usage: Usage::with_utils(utils),
         }
     }
@@ -95,8 +97,8 @@ where
             Id::Input => {
                 let Ok(outcome) = self.input.run(state).await;
                 match outcome {
-                    InputOutcome::Valid => Transition::Next(Id::Init),
-                    InputOutcome::Invalid => Transition::Next(Id::Usage),
+                    create_input::Outcome::Valid => Transition::Next(Id::Init),
+                    create_input::Outcome::Invalid => Transition::Next(Id::Usage),
                 }
             }
             Id::Init => {

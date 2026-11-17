@@ -37,3 +37,62 @@ where
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::impl_has;
+    use crate::testing::Fake;
+
+    #[derive(Default)]
+    struct State {
+        text_to_embed: Option<String>,
+        embedding: Option<Vec<f32>>,
+    }
+
+    impl_has!(State: embedding);
+
+    async fn embed(fake: &Fake, text: Option<&str>) -> State {
+        let mut state = State {
+            text_to_embed: text.map(str::to_string),
+            embedding: Some(vec![9.0]),
+        };
+        let Ok(()) = Embed::with_utils(fake).run(&mut state).await;
+        state
+    }
+
+    #[tokio::test]
+    async fn stores_the_vector_for_the_pending_text() {
+        let fake = Fake {
+            vector: Some(vec![1.0, 0.0]),
+            ..Fake::default()
+        };
+
+        let state = embed(&fake, Some("hello")).await;
+
+        assert_eq!(state.embedding, Some(vec![1.0, 0.0]));
+        assert_eq!(*fake.embedded.lock().unwrap(), ["hello"]);
+    }
+
+    #[tokio::test]
+    async fn clears_the_vector_when_the_host_is_unreachable() {
+        let fake = Fake::default();
+
+        let state = embed(&fake, Some("hello")).await;
+
+        assert_eq!(state.embedding, None);
+    }
+
+    #[tokio::test]
+    async fn clears_the_vector_without_calling_the_host_when_nothing_is_pending() {
+        let fake = Fake {
+            vector: Some(vec![1.0]),
+            ..Fake::default()
+        };
+
+        let state = embed(&fake, None).await;
+
+        assert_eq!(state.embedding, None);
+        assert!(fake.embedded.lock().unwrap().is_empty());
+    }
+}

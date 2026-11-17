@@ -3,9 +3,10 @@
 use crate::model::Hit;
 use crate::nodes::StoreError;
 use crate::nodes::embed::Embed;
-use crate::nodes::search::{
-    DEFAULT_LIMIT, HasSearch, Input, InputOutcome, Keyword, MergeRank, Semantic,
-};
+use crate::nodes::merge_rank::MergeRank;
+use crate::nodes::search_input::{self, SearchInput};
+use crate::nodes::search_keyword::SearchKeyword;
+use crate::nodes::search_semantic::SearchSemantic;
 use crate::nodes::usage::Usage;
 use crate::utils::{Embedder, Index, Out, System};
 use crate::{Node, Transition, Walk, impl_has};
@@ -25,34 +26,7 @@ struct State {
     semantic_results: Vec<Hit>,
 }
 
-impl_has!(State: args, usage, embedding);
-
-impl HasSearch for State {
-    fn query(&self) -> &str {
-        self.query.as_deref().unwrap_or_default()
-    }
-    fn set_query(&mut self, query: String) {
-        self.query = Some(query);
-    }
-    fn limit(&self) -> usize {
-        self.limit.unwrap_or(DEFAULT_LIMIT)
-    }
-    fn set_limit(&mut self, limit: usize) {
-        self.limit = Some(limit);
-    }
-    fn keyword_results(&self) -> &[Hit] {
-        &self.keyword_results
-    }
-    fn set_keyword_results(&mut self, hits: Vec<Hit>) {
-        self.keyword_results = hits;
-    }
-    fn semantic_results(&self) -> &[Hit] {
-        &self.semantic_results
-    }
-    fn set_semantic_results(&mut self, hits: Vec<Hit>) {
-        self.semantic_results = hits;
-    }
-}
+impl_has!(State: args, usage, embedding, search);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Id {
@@ -65,10 +39,10 @@ enum Id {
 }
 
 struct Search<U = System> {
-    input: Input,
-    keyword: Keyword<U>,
+    input: SearchInput,
+    keyword: SearchKeyword<U>,
     embed: Embed<U>,
-    semantic: Semantic<U>,
+    semantic: SearchSemantic<U>,
     merge_rank: MergeRank<U>,
     usage: Usage<U>,
 }
@@ -90,10 +64,10 @@ impl<U: Clone> Search<U> {
     #[must_use]
     fn with_utils(utils: U) -> Self {
         Self {
-            input: Input,
-            keyword: Keyword::with_utils(utils.clone()),
+            input: SearchInput,
+            keyword: SearchKeyword::with_utils(utils.clone()),
             embed: Embed::with_utils(utils.clone()),
-            semantic: Semantic::with_utils(utils.clone()),
+            semantic: SearchSemantic::with_utils(utils.clone()),
             merge_rank: MergeRank::with_utils(utils.clone()),
             usage: Usage::with_utils(utils),
         }
@@ -113,8 +87,8 @@ where
             Id::Input => {
                 let Ok(outcome) = self.input.run(state).await;
                 match outcome {
-                    InputOutcome::Given => Transition::Next(Id::Keyword),
-                    InputOutcome::Missing => Transition::Next(Id::Usage),
+                    search_input::Outcome::Given => Transition::Next(Id::Keyword),
+                    search_input::Outcome::Missing => Transition::Next(Id::Usage),
                 }
             }
             Id::Keyword => {
