@@ -58,3 +58,55 @@ where
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::impl_has;
+
+    #[derive(Default)]
+    struct State {
+        args: Vec<String>,
+        verb: String,
+        id: Option<String>,
+        usage: Option<String>,
+    }
+
+    impl_has!(State: args, verb, id, usage);
+
+    async fn id_arg(node: IdArg, args: &[&str]) -> (Outcome, State) {
+        let mut state = State {
+            args: args.iter().map(|a| (*a).to_string()).collect(),
+            verb: "get".into(),
+            ..State::default()
+        };
+        let Ok(outcome) = node.run(&mut state).await;
+        (outcome, state)
+    }
+
+    #[tokio::test]
+    async fn reads_the_id_when_given() {
+        let (outcome, state) = id_arg(IdArg::new(), &["a", "extra"]).await;
+
+        assert_eq!(outcome, Outcome::Given);
+        assert_eq!(state.id.as_deref(), Some("a"));
+        assert_eq!(state.usage, None);
+    }
+
+    #[tokio::test]
+    async fn queues_usage_built_from_the_verb_when_missing() {
+        let (outcome, state) = id_arg(IdArg::new(), &[]).await;
+
+        assert_eq!(outcome, Outcome::Missing);
+        assert_eq!(state.usage.as_deref(), Some("Usage: azk get <id>"));
+        assert_eq!(state.id, None);
+    }
+
+    #[tokio::test]
+    async fn queues_the_supplied_usage_when_missing() {
+        let (outcome, state) = id_arg(IdArg::with_usage("custom"), &[]).await;
+
+        assert_eq!(outcome, Outcome::Missing);
+        assert_eq!(state.usage.as_deref(), Some("custom"));
+    }
+}

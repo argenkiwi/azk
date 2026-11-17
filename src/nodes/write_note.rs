@@ -52,3 +52,68 @@ where
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::impl_has;
+    use crate::model::Note;
+    use crate::testing::{Fake, note};
+
+    #[derive(Default)]
+    struct State {
+        note: Option<Note>,
+        error: Option<String>,
+    }
+
+    impl_has!(State: note, error);
+
+    async fn write(fake: &Fake, note: Option<Note>) -> (Outcome, State) {
+        let mut state = State {
+            note,
+            ..State::default()
+        };
+        let Ok(outcome) = WriteNote::with_utils(fake).run(&mut state).await;
+        (outcome, state)
+    }
+
+    #[tokio::test]
+    async fn writes_the_note_file() {
+        let fake = Fake::default();
+
+        let (outcome, state) = write(&fake, Some(note("a", "A", "body"))).await;
+
+        assert_eq!(outcome, Outcome::Written);
+        assert_eq!(state.error, None);
+        assert_eq!(fake.file("a"), Some(note("a", "A", "body")));
+        assert!(fake.printed().is_empty());
+    }
+
+    #[tokio::test]
+    async fn prints_an_error_without_a_note() {
+        let fake = Fake::default();
+
+        let (outcome, state) = write(&fake, None).await;
+
+        assert_eq!(outcome, Outcome::Failed);
+        assert_eq!(state.error.as_deref(), Some("no note to write"));
+        assert_eq!(fake.printed_json()["error"], "no note to write");
+    }
+
+    #[tokio::test]
+    async fn prints_an_error_when_the_write_fails() {
+        let fake = Fake {
+            fail_notes: true,
+            ..Fake::default()
+        };
+
+        let (outcome, state) = write(&fake, Some(note("a", "A", "body"))).await;
+
+        assert_eq!(outcome, Outcome::Failed);
+        assert_eq!(
+            state.error.as_deref(),
+            Some("could not write note a: disk is broken")
+        );
+        assert_eq!(fake.file("a"), None);
+    }
+}

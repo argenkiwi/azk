@@ -105,7 +105,7 @@ Both variables are read from the process environment only: azk does not load a `
 
 ## Architecture
 
-The crate defines two traits in `src/lib.rs`:
+`src/engine.rs` defines two traits (it is the standard Ambler engine, the same in every Ambler project):
 
 - **`Node<S>`**: a node runs one step against the shared state and returns its own typed `Outcome` enum. It never names its successor.
 - **`Walk`**: a walk owns its nodes and turns each outcome into a `Transition::Next(id)` or `Transition::Halt`, using an exhaustive `match`.
@@ -127,22 +127,17 @@ Splitting the walks per verb lets each walk's `State` hold exactly the fields th
 
 ## Development
 
+azk is an [Ambler](https://github.com/argenkiwi/ambler-rs) project: nodes, walks and utilities are created with the [amble](https://github.com/argenkiwi/amble) CLI and built test-first.
+
 ```bash
-cargo test                                   # node and walk tests
-cargo clippy --all-targets -- -D warnings
-cargo fmt --check
+amble help                                   # conventions and guides
+amble node <name> …                          # add a node
+amble walk <name> … --no-runner              # wire nodes into a verb walk
+amble check                                  # conventions, fmt, clippy, tests
 cargo run -- search "query"                  # run the CLI locally
 ```
 
 > [!CAUTION]
 > `cargo run` reads and writes `notes/` and `.azk/` in the current directory. Run it from a scratch directory unless you mean to change this repo's own notes.
 
-The [`.agents/skills`](.agents/skills) directory holds step-by-step guides for coding agents working on azk:
-
-| Skill | Use it to |
-|---|---|
-| `ambler-node` | Add a node using TDD |
-| `ambler-test` | Add tests to an existing node or walk |
-| `ambler-util` | Add a side-effect capability to `src/utils/` |
-| `ambler-walk` | Wire nodes into a new verb, with its spec |
-| `ambler-spec` | Write a walk's Markdown spec |
+[`AGENTS.md`](AGENTS.md) holds the instructions for coding agents, including where azk departs from what `amble` generates (shared capability traits instead of per-node utils, `testing::Fake`, `impl_has!`). The [`ambler`](.agents/skills/ambler/SKILL.md) skill, linked into `.claude/skills`, points agents at `amble`.

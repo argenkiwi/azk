@@ -1,6 +1,7 @@
 //! `azk help`: prints the general guide, or one verb's. See `specs/help.md`.
 
-use crate::nodes::help::{HasTopic, Input, InputOutcome, Print};
+use crate::nodes::help_input::{self, HelpInput};
+use crate::nodes::help_print::HelpPrint;
 use crate::nodes::usage::Usage;
 use crate::utils::{Out, System};
 use crate::{Node, Transition, Walk, impl_has};
@@ -16,16 +17,7 @@ struct State {
     topic: String,
 }
 
-impl_has!(State: args, usage);
-
-impl HasTopic for State {
-    fn topic(&self) -> &str {
-        &self.topic
-    }
-    fn set_topic(&mut self, topic: String) {
-        self.topic = topic;
-    }
-}
+impl_has!(State: args, usage, topic);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Id {
@@ -35,8 +27,8 @@ enum Id {
 }
 
 struct Help<U = System> {
-    input: Input,
-    print: Print<U>,
+    input: HelpInput,
+    print: HelpPrint<U>,
     usage: Usage<U>,
 }
 
@@ -57,8 +49,8 @@ impl<U: Clone> Help<U> {
     #[must_use]
     fn with_utils(utils: U) -> Self {
         Self {
-            input: Input,
-            print: Print::with_utils(utils.clone()),
+            input: HelpInput,
+            print: HelpPrint::with_utils(utils.clone()),
             usage: Usage::with_utils(utils),
         }
     }
@@ -77,8 +69,8 @@ where
             Id::Input => {
                 let Ok(outcome) = self.input.run(state).await;
                 match outcome {
-                    InputOutcome::Known => Transition::Next(Id::Print),
-                    InputOutcome::Unknown => Transition::Next(Id::Usage),
+                    help_input::Outcome::Known => Transition::Next(Id::Print),
+                    help_input::Outcome::Unknown => Transition::Next(Id::Usage),
                 }
             }
             Id::Print => {

@@ -41,3 +41,89 @@ where
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::impl_has;
+    use crate::model::Link;
+    use crate::testing::{Fake, note};
+
+    #[derive(Default)]
+    struct State {
+        id: Option<String>,
+        error: Option<String>,
+    }
+
+    impl_has!(State: id, error);
+
+    fn indexed_note() -> Fake {
+        let fake = Fake::default()
+            .with_note(note("a", "A", "x"))
+            .with_note(note("b", "B", "y"));
+        (&fake).upsert(&note("a", "A", "x"), None).unwrap();
+        let link = Link {
+            to_id: "a".into(),
+            relation: "r".into(),
+        };
+        (&fake).add_links("b", &[link]).unwrap();
+        fake
+    }
+
+    async fn delete(fake: &Fake) -> State {
+        let mut state = State {
+            id: Some("a".into()),
+            ..State::default()
+        };
+        let Ok(()) = Delete::with_utils(fake).run(&mut state).await;
+        state
+    }
+
+    #[tokio::test]
+    async fn removes_file_entry_and_links_then_confirms() {
+        let fake = indexed_note();
+
+        let state = delete(&fake).await;
+
+        assert_eq!(state.error, None);
+        assert_eq!(fake.file("a"), None);
+        assert!(fake.file("b").is_some());
+        assert!(!fake.indexed.lock().unwrap().contains_key("a"));
+        assert!(fake.links.lock().unwrap().is_empty());
+        assert_eq!(fake.printed_json(), json!({"id":"a","deleted":true}));
+    }
+
+    #[tokio::test]
+    async fn prints_an_error_and_keeps_the_index_when_the_file_cannot_be_removed() {
+        let fake = Fake {
+            fail_notes: true,
+            ..indexed_note()
+        };
+
+        let state = delete(&fake).await;
+
+        assert_eq!(
+            state.error.as_deref(),
+            Some("could not remove note a: disk is broken")
+        );
+        assert_eq!(
+            fake.printed_json()["error"],
+            "could not remove note a: disk is broken"
+        );
+        assert!(fake.indexed.lock().unwrap().contains_key("a"));
+    }
+
+    #[tokio::test]
+    async fn prints_an_error_when_the_index_rejects_the_delete() {
+        let fake = Fake {
+            fail_index: true,
+            ..indexed_note()
+        };
+
+        let state = delete(&fake).await;
+
+        assert_eq!(state.error.as_deref(), Some("index is broken"));
+        assert_eq!(fake.printed_json()["error"], "index is broken");
+        assert_eq!(fake.file("a"), None, "the file goes first");
+    }
+}

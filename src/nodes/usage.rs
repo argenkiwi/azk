@@ -33,3 +33,41 @@ where
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::impl_has;
+    use crate::testing::Fake;
+
+    #[derive(Default)]
+    struct State {
+        usage: Option<String>,
+    }
+
+    impl_has!(State: usage);
+
+    #[tokio::test]
+    async fn prints_the_pending_message_to_stderr() {
+        let fake = Fake::default();
+        let mut state = State {
+            usage: Some("Usage: azk get <id>".into()),
+        };
+
+        let Ok(()) = Usage::with_utils(&fake).run(&mut state).await;
+
+        assert_eq!(fake.eprinted(), ["Usage: azk get <id>"]);
+        assert!(fake.printed().is_empty());
+        assert!(state.usage.is_some(), "kept so the run exits 1");
+    }
+
+    #[tokio::test]
+    async fn prints_nothing_without_a_message() {
+        let fake = Fake::default();
+        let mut state = State::default();
+
+        let Ok(()) = Usage::with_utils(&fake).run(&mut state).await;
+
+        assert!(fake.eprinted().is_empty());
+    }
+}

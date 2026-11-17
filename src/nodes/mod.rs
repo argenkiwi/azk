@@ -1,18 +1,33 @@
-use crate::model::{Link, Note};
+use crate::model::{Hit, Link, Note};
 
-pub mod create;
+pub mod create_finish;
+pub mod create_init;
+pub mod create_input;
 pub mod create_links;
 pub mod delete;
+pub mod detect_change;
 pub mod embed;
 pub mod exists_check;
 pub mod get;
-pub mod help;
+pub mod help_input;
+pub mod help_print;
 pub mod id_arg;
 pub mod index_upsert;
-pub mod link;
-pub mod reindex;
-pub mod search;
-pub mod update;
+pub mod link_finish;
+pub mod link_input;
+pub mod link_validate;
+pub mod merge_rank;
+pub mod prune_orphans;
+pub mod reindex_finish;
+pub mod reindex_list;
+pub mod reindex_next;
+pub mod replace_links;
+pub mod search_input;
+pub mod search_keyword;
+pub mod search_semantic;
+pub mod update_finish;
+pub mod update_input;
+pub mod update_merge;
 pub mod usage;
 pub mod write_note;
 
@@ -78,9 +93,51 @@ pub trait HasFields {
     fn tags_mut(&mut self) -> &mut Option<Vec<String>>;
 }
 
+/// `general`, or the verb whose guide to print.
+pub trait HasTopic {
+    fn topic(&self) -> &str;
+    fn set_topic(&mut self, topic: String);
+}
+
+/// The link being made: `from_id` (see [`HasLinks`]) points at `to_id` with `relation`.
+pub trait HasLinkArgs {
+    fn to_id(&self) -> &Option<String>;
+    fn to_id_mut(&mut self) -> &mut Option<String>;
+    fn relation(&self) -> &Option<String>;
+    fn relation_mut(&mut self) -> &mut Option<String>;
+}
+
+/// The queue of notes to reindex and the counters accumulated while draining it.
+pub trait HasQueue {
+    /// Replaces the queue and zeroes the counters.
+    fn seed(&mut self, ids: Vec<String>);
+    /// Every note on disk, as listed at the start.
+    fn all_ids(&self) -> &[String];
+    /// Takes the next id off the queue.
+    fn take_next(&mut self) -> Option<String>;
+    fn count_indexed(&mut self);
+    fn count_updated(&mut self);
+    fn set_removed(&mut self, removed: usize);
+    /// `(indexed, updated, removed, total)`
+    fn summary(&self) -> (usize, usize, usize, usize);
+}
+
+/// The query, how many results to return, and the two rankings awaiting the blend.
+pub trait HasSearch {
+    fn query(&self) -> &str;
+    fn set_query(&mut self, query: String);
+    fn limit(&self) -> usize;
+    fn set_limit(&mut self, limit: usize);
+    fn keyword_results(&self) -> &[Hit];
+    fn set_keyword_results(&mut self, hits: Vec<Hit>);
+    fn semantic_results(&self) -> &[Hit];
+    fn set_semantic_results(&mut self, hits: Vec<Hit>);
+}
+
 /// Implements the state traits for a struct whose fields carry the spec's snake_case names.
 ///
 /// `impl_has!(State: usage, error, id)` — each name is the field and selects the trait.
+/// `queue`, `search`, `topic` and `link_args` expect the fields the walks' states use.
 #[macro_export]
 macro_rules! impl_has {
     ($state:ty: $($name:ident),+ $(,)?) => { $( $crate::impl_has!(@ $state, $name); )+ };
@@ -143,6 +200,57 @@ macro_rules! impl_has {
             fn tags_mut(&mut self) -> &mut Option<Vec<String>> { &mut self.tags }
         }
     };
+    (@ $s:ty, topic) => {
+        impl $crate::nodes::HasTopic for $s {
+            fn topic(&self) -> &str { &self.topic }
+            fn set_topic(&mut self, topic: String) { self.topic = topic; }
+        }
+    };
+    (@ $s:ty, link_args) => {
+        impl $crate::nodes::HasLinkArgs for $s {
+            fn to_id(&self) -> &Option<String> { &self.to_id }
+            fn to_id_mut(&mut self) -> &mut Option<String> { &mut self.to_id }
+            fn relation(&self) -> &Option<String> { &self.relation }
+            fn relation_mut(&mut self) -> &mut Option<String> { &mut self.relation }
+        }
+    };
+    (@ $s:ty, queue) => {
+        impl $crate::nodes::HasQueue for $s {
+            fn seed(&mut self, ids: Vec<String>) {
+                self.total = ids.len();
+                self.remaining_ids = ids.iter().cloned().collect();
+                self.all_ids = ids;
+                self.indexed = 0;
+                self.updated = 0;
+            }
+            fn all_ids(&self) -> &[String] { &self.all_ids }
+            fn take_next(&mut self) -> Option<String> { self.remaining_ids.pop_front() }
+            fn count_indexed(&mut self) { self.indexed += 1; }
+            fn count_updated(&mut self) { self.updated += 1; }
+            fn set_removed(&mut self, removed: usize) { self.removed = removed; }
+            fn summary(&self) -> (usize, usize, usize, usize) {
+                (self.indexed, self.updated, self.removed, self.total)
+            }
+        }
+    };
+    (@ $s:ty, search) => {
+        impl $crate::nodes::HasSearch for $s {
+            fn query(&self) -> &str { self.query.as_deref().unwrap_or_default() }
+            fn set_query(&mut self, query: String) { self.query = Some(query); }
+            fn limit(&self) -> usize {
+                self.limit.unwrap_or($crate::nodes::search_input::DEFAULT_LIMIT)
+            }
+            fn set_limit(&mut self, limit: usize) { self.limit = Some(limit); }
+            fn keyword_results(&self) -> &[$crate::model::Hit] { &self.keyword_results }
+            fn set_keyword_results(&mut self, hits: Vec<$crate::model::Hit>) {
+                self.keyword_results = hits;
+            }
+            fn semantic_results(&self) -> &[$crate::model::Hit] { &self.semantic_results }
+            fn set_semantic_results(&mut self, hits: Vec<$crate::model::Hit>) {
+                self.semantic_results = hits;
+            }
+        }
+    };
 }
 
 /// Prints one JSON value to stdout.
@@ -154,4 +262,38 @@ pub(crate) fn print_json(out: &impl crate::utils::Out, value: &serde_json::Value
 pub(crate) fn fail<S: HasError>(out: &impl crate::utils::Out, state: &mut S, message: String) {
     print_json(out, &serde_json::json!({ "error": message }));
     *state.error_mut() = Some(message);
+}
+
+/// The guides are compiled in, so an installed binary needs no access to its source directory.
+const GUIDES: [(&str, &str); 9] = [
+    ("general", include_str!("../guides/general.md")),
+    ("search", include_str!("../guides/search.md")),
+    ("create", include_str!("../guides/create.md")),
+    ("get", include_str!("../guides/get.md")),
+    ("update", include_str!("../guides/update.md")),
+    ("delete", include_str!("../guides/delete.md")),
+    ("link", include_str!("../guides/link.md")),
+    ("reindex", include_str!("../guides/reindex.md")),
+    ("help", include_str!("../guides/help.md")),
+];
+
+/// The guide for `topic` (`general` or a verb), if there is one.
+pub(crate) fn guide(topic: &str) -> Option<&'static str> {
+    GUIDES.iter().find(|(t, _)| *t == topic).map(|(_, g)| *g)
+}
+
+/// Every verb with a guide, in help order.
+pub(crate) fn verbs() -> Vec<&'static str> {
+    GUIDES.iter().skip(1).map(|(t, _)| *t).collect()
+}
+
+/// Scores hits (best first) by rank position, so the keyword and semantic rankings can be added.
+pub(crate) fn by_position(hits: Vec<Hit>) -> Vec<Hit> {
+    hits.into_iter()
+        .enumerate()
+        .map(|(position, hit)| Hit {
+            score: 1.0 / (60.0 + position as f64 + 1.0),
+            ..hit
+        })
+        .collect()
 }

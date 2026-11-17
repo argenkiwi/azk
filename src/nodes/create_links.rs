@@ -49,3 +49,78 @@ where
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::impl_has;
+    use crate::model::{GraphLink, Link};
+    use crate::testing::Fake;
+
+    #[derive(Default)]
+    struct State {
+        error: Option<String>,
+        from_id: Option<String>,
+        links: Vec<Link>,
+    }
+
+    impl_has!(State: error, links);
+
+    fn pending(from: Option<&str>) -> State {
+        State {
+            from_id: from.map(str::to_string),
+            links: vec![Link {
+                to_id: "b".into(),
+                relation: "r".into(),
+            }],
+            ..State::default()
+        }
+    }
+
+    #[tokio::test]
+    async fn records_the_links_out_of_the_source() {
+        let fake = Fake::default();
+        let mut state = pending(Some("a"));
+
+        let Ok(outcome) = CreateLinks::with_utils(&fake).run(&mut state).await;
+
+        assert_eq!(outcome, Outcome::Recorded);
+        assert_eq!(
+            *fake.links.lock().unwrap(),
+            [GraphLink {
+                from_id: "a".into(),
+                to_id: "b".into(),
+                relation: "r".into()
+            }]
+        );
+        assert!(fake.printed().is_empty());
+    }
+
+    #[tokio::test]
+    async fn prints_an_error_without_a_source_note() {
+        let fake = Fake::default();
+        let mut state = pending(None);
+
+        let Ok(outcome) = CreateLinks::with_utils(&fake).run(&mut state).await;
+
+        assert_eq!(outcome, Outcome::Failed);
+        assert_eq!(state.error.as_deref(), Some("no source note for the links"));
+        assert_eq!(fake.printed_json()["error"], "no source note for the links");
+        assert!(fake.links.lock().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn prints_an_error_when_the_index_rejects_the_links() {
+        let fake = Fake {
+            fail_index: true,
+            ..Fake::default()
+        };
+        let mut state = pending(Some("a"));
+
+        let Ok(outcome) = CreateLinks::with_utils(&fake).run(&mut state).await;
+
+        assert_eq!(outcome, Outcome::Failed);
+        assert_eq!(state.error.as_deref(), Some("index is broken"));
+        assert_eq!(fake.printed_json()["error"], "index is broken");
+    }
+}
