@@ -16,7 +16,10 @@
 !.vscode/extensions.json
 *.code-workspace
 .idea/
-/.claude
+
+# --- Agents: settings are local; the skills link is shared ---
+/.claude/*
+!/.claude/skills
 
 # --- OS Specific ---
 .DS_Store
