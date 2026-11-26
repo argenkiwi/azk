@@ -127,17 +127,17 @@ Splitting the walks per verb lets each walk's `State` hold exactly the fields th
 
 ## Development
 
-azk is an [Ambler](https://github.com/argenkiwi/ambler-rs) project: nodes, walks and utilities are created with the [amble](https://github.com/argenkiwi/amble) CLI and built test-first.
+azk is an [Ambler](https://github.com/argenkiwi/ambler-rs) project: nodes, walks and utilities are created with the Ambler CLI (run through the `xtask` crate as `cargo ambler`) and built test-first.
 
 ```bash
-amble help                                   # conventions and guides
-amble node <name> …                          # add a node
-amble walk <name> … --no-runner              # wire nodes into a verb walk
-amble check                                  # conventions, fmt, clippy, tests
+cargo ambler help                            # conventions and guides
+cargo ambler node <name> …                   # add a node
+cargo ambler walk <name> … --no-runner       # wire nodes into a verb walk
+cargo ambler check                           # conventions, fmt, clippy, tests
 cargo run -- search "query"                  # run the CLI locally
 ```
 
 > [!CAUTION]
 > `cargo run` reads and writes `notes/` and `.azk/` in the current directory. Run it from a scratch directory unless you mean to change this repo's own notes.
 
-[`AGENTS.md`](AGENTS.md) holds the instructions for coding agents, including where azk departs from what `amble` generates (shared capability traits instead of per-node utils, `testing::Fake`, `impl_has!`). The [`ambler`](.agents/skills/ambler/SKILL.md) skill, linked into `.claude/skills`, points agents at `amble`.
+[`AGENTS.md`](AGENTS.md) holds the instructions for coding agents, including where azk departs from what `cargo ambler` generates (shared capability traits instead of per-node utils, `testing::Fake`, `impl_has!`). The [`ambler`](.agents/skills/ambler/SKILL.md) skill, linked into `.claude/skills`, points agents at `cargo ambler`.

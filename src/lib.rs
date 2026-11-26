@@ -1,4 +1,4 @@
-//! azk: a Zettelkasten CLI for coding agents, built as an Ambler project. Run `amble help` for
+//! azk: a Zettelkasten CLI for coding agents, built as an Ambler project. Run `cargo ambler help` for
 //! how it is laid out.
 
 pub mod engine;
