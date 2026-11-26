@@ -5,6 +5,9 @@ edition = "2024"
 rust-version = "1.85"
 license = "MIT"
 
+[workspace]
+members = [".", "xtask"]
+
 [dependencies]
 rand = "0.9"
 rusqlite = { version = "0.40.2", features = ["bundled"] }
